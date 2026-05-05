@@ -21,7 +21,10 @@ export async function uploadScreenshot(
         exif: false,
       },
       (error, result) => {
-        if (error || !result) return reject(error || new Error('Upload failed'));
+        if (error || !result) {
+          console.error('Cloudinary upload error:', error);
+          return reject(error || new Error('Upload failed'));
+        }
         resolve(result.secure_url);
       }
     );
