@@ -7,6 +7,7 @@ export function validateMetaWebhook(
   res: Response,
   next: NextFunction
 ) {
+  console.log("check hit")
   const signature = req.headers['x-hub-signature-256'] as string;
 
   if (!signature) {
