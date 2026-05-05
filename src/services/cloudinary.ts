@@ -1,21 +1,23 @@
 import cloudinary from '../config/cloudinary';
-import { downloadMedia } from './whatsapp';
+import { getMediaUrl, downloadMedia } from './whatsapp';
 
 export async function uploadScreenshot(
   mediaId: string,
   folder: string
 ): Promise<string> {
-  // Download from Meta first
-  const buffer = await downloadMedia(mediaId);
+  // Step 1: Get the download URL from Meta
+  const mediaUrl = await getMediaUrl(mediaId);
+  
+  // Step 2: Download the actual file
+  const buffer = await downloadMedia(mediaUrl);
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder:         `adswap/${folder}`,
-        resource_type:  'image',
-        allowed_formats:['jpg', 'jpeg', 'png', 'webp'],
-        transformation: [{ quality: 'auto', fetch_format: 'auto' }],
-        // Strip EXIF metadata for privacy
+        folder:          `adswap/${folder}`,
+        resource_type:   'image',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation:  [{ quality: 'auto', fetch_format: 'auto' }],
         exif: false,
       },
       (error, result) => {
