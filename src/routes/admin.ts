@@ -69,7 +69,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
 // ── Listings ──────────────────────────────────────────────────────────────────
 router.get('/listings', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status, page = 1, limit = 20 } = req.query;
-  const filter = status ? { status: status as string } : {};
+  const filter: any = status ? { status: status as string } : {};
 
   const listings = await Listing.find(filter)
     .populate('seller', 'phone name totalSales sellerRating')
@@ -127,7 +127,7 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
 // ── Disputes ──────────────────────────────────────────────────────────────────
 router.get('/disputes', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status } = req.query;
-  const filter = status ? { status: status as string } : { status: 'open' };
+ const filter: any = status ? { status: status as string } : { status: 'open' };
 
   const disputes = await Dispute.find(filter)
     .populate('transaction')
