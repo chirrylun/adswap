@@ -48,6 +48,7 @@ app.use('/webhook/paystack', express.raw({
 // Parse raw buffer back to object for handler use
 app.use('/webhook', (req: Request, res, next) => {
   if (Buffer.isBuffer(req.body)) {
+    (req as any).rawBody = req.body; // save raw buffer for signature check
     try {
       req.body = JSON.parse(req.body.toString());
     } catch {

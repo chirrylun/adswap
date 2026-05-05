@@ -14,10 +14,12 @@ export function validateMetaWebhook(
     return res.status(401).json({ error: 'Missing signature' });
   }
 
-  const expected = 'sha256=' + crypto
-    .createHmac('sha256', process.env.META_APP_SECRET!)
-    .update(req.body) // raw body buffer — see app.ts
-    .digest('hex');
+  const body = (req as any).rawBody || req.body;
+
+const expected = 'sha256=' + crypto
+  .createHmac('sha256', process.env.META_APP_SECRET!)
+  .update(body)
+  .digest('hex');
 
   // Constant-time comparison to prevent timing attacks
   const sigBuffer      = Buffer.from(signature, 'utf8');
