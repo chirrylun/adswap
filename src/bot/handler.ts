@@ -13,6 +13,7 @@ export async function handleIncoming(
   text:    string,
   mediaId?: string
 ): Promise<void> {
+   console.log(`Incoming message from ${phone}: "${text}"`);
   const upper   = text.trim().toUpperCase();
   const session = await getSession(phone);
 
