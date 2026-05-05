@@ -58,7 +58,7 @@ export function perPhoneLimiter(
     // Don't respond with HTTP error — send WhatsApp message instead
     res.sendStatus(200);
     // Import sendMessage lazily to avoid circular deps
-    import('../services/whatsapp.ts').then(({ sendMessage }) => {
+    import('../services/whatsapp').then(({ sendMessage }) => {
       sendMessage(phone,
         '⚠️ You\'re sending messages too fast.\n\nPlease wait a minute and try again.'
       ).catch(console.error);
