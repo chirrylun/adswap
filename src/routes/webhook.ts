@@ -27,9 +27,9 @@ router.get('/whatsapp', (req: Request, res: Response) => {
 // ─── WhatsApp POST — Incoming messages ───────────────────────────────────────
 router.post(
   '/whatsapp',
-  webhookLimiter,       // IP-level rate limit
-  perPhoneLimiter,      // Per-phone rate limit
-  validateMetaWebhook,  // Signature verification
+  // webhookLimiter,       // IP-level rate limit
+  // perPhoneLimiter,      // Per-phone rate limit
+  // validateMetaWebhook,  // Signature verification
   async (req: Request, res: Response) => {
     // Always respond 200 immediately — Meta retries if you don't
     res.sendStatus(200);
