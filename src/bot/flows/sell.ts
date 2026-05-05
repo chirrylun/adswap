@@ -1,4 +1,4 @@
-import { sendMessage, sendButtons } from '../../services/whatsapp';
+import { sendMessage, sendButtons, sendList } from '../../services/whatsapp';
 import { getSession, setSession, clearSession, updateSessionData } from '../session';
 import { uploadScreenshot } from '../../services/cloudinary';
 import { createListingFeePayment } from '../../services/paystack';
@@ -8,6 +8,168 @@ import User    from '../../models/User';
 import { generateId } from '../../utils/helpers';
 import { ISession } from '../../models/Session';
 
+// ─── Niches ───────────────────────────────────────────────────────────────────
+const NICHES = [
+  { id: 'NICHE_FINANCE',       title: 'Finance & Banking',      description: 'Personal finance, investment, crypto' },
+  { id: 'NICHE_TECH',          title: 'Tech & Gadgets',         description: 'Software, hardware, reviews' },
+  { id: 'NICHE_ENTERTAINMENT', title: 'Entertainment',          description: 'Music, movies, celebrity news' },
+  { id: 'NICHE_FASHION',       title: 'Fashion & Beauty',       description: 'Style, makeup, lifestyle' },
+  { id: 'NICHE_FOOD',          title: 'Food & Cooking',         description: 'Recipes, restaurants, nutrition' },
+  { id: 'NICHE_HEALTH',        title: 'Health & Fitness',       description: 'Wellness, workouts, diet' },
+  { id: 'NICHE_EDUCATION',     title: 'Education & Career',     description: 'Tutorials, e-learning, jobs' },
+  { id: 'NICHE_SPORTS',        title: 'Sports & Gaming',        description: 'Football, esports, betting tips' },
+  { id: 'NICHE_TRAVEL',        title: 'Travel & Tourism',       description: 'Destinations, hotels, vlogs' },
+  { id: 'NICHE_OTHER',         title: 'Other / Mixed',          description: 'General or mixed content' },
+];
+
+const NICHE_LABELS: Record<string, string> = Object.fromEntries(
+  NICHES.map(n => [n.id, n.title])
+);
+
+// ─── Questionnaire ────────────────────────────────────────────────────────────
+type QuestionKey =
+  | 'sell_q_age'
+  | 'sell_q_payments'
+  | 'sell_q_monthly_earnings'
+  | 'sell_q_website'
+  | 'sell_q_channel_subs'
+  | 'sell_q_channel_views'
+  | 'sell_q_violations'
+  | 'sell_q_extras';
+
+interface Question {
+  step:     QuestionKey;
+  prompt:   string;
+  buttons?: { id: string; title: string }[];
+}
+
+function getQuestions(type: string): Question[] {
+  const questions: Question[] = [
+    {
+      step:   'sell_q_age',
+      prompt: `*Question 1* 📅\n\n*How old is this account?*\n\nExamples: 6 months, 2 years, 4 years\n\nType your answer:`,
+    },
+    {
+      step:   'sell_q_payments',
+      prompt: `*Question 2* 💳\n\n*Has AdSense ever made a payment to this account?*`,
+      buttons: [
+        { id: 'Q_PAY_YES',    title: '✅ Yes, received' },
+        { id: 'Q_PAY_NO',     title: '❌ No payments'   },
+        { id: 'Q_PAY_THRESH', title: '⏳ At threshold'  },
+      ],
+    },
+    {
+      step:   'sell_q_monthly_earnings',
+      prompt: `*Question 3* 💵\n\n*Approximate monthly earnings (USD)?*\n\nExamples: $20, $150, $500+\n\nType your answer:`,
+    },
+  ];
+
+  if (type === 'verified_adsense' || type === 'payment_received_adsense' || type === 'website_bundle') {
+    questions.push({
+      step:   'sell_q_website',
+      prompt: `*Question 4* 🌐\n\n*Is a website attached to this AdSense account?*`,
+      buttons: [
+        { id: 'Q_WEB_YES', title: '✅ Yes, included' },
+        { id: 'Q_WEB_NO',  title: '❌ No website'    },
+      ],
+    });
+  }
+
+  if (type === 'youtube_channel') {
+    questions.push(
+      {
+        step:   'sell_q_channel_subs',
+        prompt: `*Question 4* 📺\n\n*How many subscribers does the channel have?*\n\nExamples: 1,200 | 50K | 200K\n\nType your answer:`,
+      },
+      {
+        step:   'sell_q_channel_views',
+        prompt: `*Question 5* 👁️\n\n*Average monthly views?*\n\nExamples: 10K/month, 500K/month\n\nType your answer:`,
+      }
+    );
+  }
+
+  const nextNum = questions.length + 1;
+
+  questions.push(
+    {
+      step:   'sell_q_violations',
+      prompt: `*Question ${nextNum}* ⚠️\n\n*Any policy violations or strikes on this account?*`,
+      buttons: [
+        { id: 'Q_VIO_NO',  title: '✅ No violations'  },
+        { id: 'Q_VIO_YES', title: '⚠️ Has violations' },
+      ],
+    },
+    {
+      step:   'sell_q_extras',
+      prompt: `*Last question* 📝\n\n*Any extra details a buyer should know?*\n\nE.g. login credentials included, country-specific traffic, authority site, etc.\n\nType *NONE* to skip:`,
+    }
+  );
+
+  return questions;
+}
+
+// ─── Build description from answers ──────────────────────────────────────────
+function buildDescription(data: Record<string, any>): string {
+  const payLabel: Record<string, string> = {
+    Q_PAY_YES:    'Yes — payments received',
+    Q_PAY_NO:     'No payments yet',
+    Q_PAY_THRESH: 'Reached threshold, not yet paid',
+  };
+  const webLabel: Record<string, string> = {
+    Q_WEB_YES: 'Yes',
+    Q_WEB_NO:  'No',
+  };
+  const vioLabel: Record<string, string> = {
+    Q_VIO_NO:  'None',
+    Q_VIO_YES: 'Has violations',
+  };
+
+  const lines: string[] = [
+    `Age: ${data.sell_q_age || 'N/A'}`,
+    `Payments: ${payLabel[data.sell_q_payments] || data.sell_q_payments || 'N/A'}`,
+    `Monthly earnings: ${data.sell_q_monthly_earnings || 'N/A'}`,
+  ];
+
+  if (data.sell_q_website) {
+    lines.push(`Website attached: ${webLabel[data.sell_q_website] || data.sell_q_website}`);
+  }
+  if (data.sell_q_channel_subs) {
+    lines.push(`Subscribers: ${data.sell_q_channel_subs}`);
+  }
+  if (data.sell_q_channel_views) {
+    lines.push(`Monthly views: ${data.sell_q_channel_views}`);
+  }
+
+  lines.push(`Violations: ${vioLabel[data.sell_q_violations] || data.sell_q_violations || 'N/A'}`);
+
+  if (data.sell_q_extras && data.sell_q_extras.toUpperCase() !== 'NONE') {
+    lines.push(`Notes: ${data.sell_q_extras}`);
+  }
+
+  return lines.join(' | ');
+}
+
+// ─── Niche list helper ────────────────────────────────────────────────────────
+async function sendNicheList(phone: string, intro: string): Promise<void> {
+  return sendList(
+    phone,
+    intro,
+    'Select Niche',
+    [
+      {
+        title: 'Content Categories',
+        rows:  NICHES.map(n => ({
+          id:          n.id,
+          title:       n.title,
+          description: n.description,
+        })),
+      },
+    ],
+    'Select Account Niche'
+  );
+}
+
+// ─── Main handler ─────────────────────────────────────────────────────────────
 export async function handleSell(
   phone:   string,
   text:    string,
@@ -55,43 +217,59 @@ export async function handleSell(
       return sendMessage(phone, '❌ Invalid price. Minimum is ₦10,000.\nEnter numbers only, e.g. 950000');
     }
     await setSession(phone, 'sell_niche', { ...data, price });
-    return sendMessage(phone,
-      `✅ Price set: *₦${price.toLocaleString()}*\n\n` +
-      `What niche is this account?\n\n` +
-      `Examples: Finance blog, Tech news, Entertainment, Fashion, Cooking YouTube\n\n` +
-      `Type your niche:`
-    );
+    return sendNicheList(phone, `✅ Price set: *₦${price.toLocaleString()}*\n\nWhat niche is this account?`);
   }
 
   // ── Set niche ──────────────────────────────────────────────────────────────
   if (step === 'sell_niche') {
-    const niche = text.slice(0, 100);
-    await setSession(phone, 'sell_description', { ...data, niche });
-    return sendMessage(phone,
-      `✅ Niche: *${niche}*\n\n` +
-      `Give a brief description of the account:\n\n` +
-      `Include:\n` +
-      `— Account age\n` +
-      `— Payments received (if any)\n` +
-      `— Attached website or YouTube?\n` +
-      `— Any other useful details\n\n` +
-      `Max 300 characters.`
-    );
+    const niche = NICHE_LABELS[text];
+    if (!niche) {
+      return sendNicheList(phone, `Please select a niche from the list:`);
+    }
+    const questions = getQuestions(data.type);
+    const firstQ    = questions[0];
+    await setSession(phone, firstQ.step, { ...data, niche });
+    return firstQ.buttons
+      ? sendButtons(phone, firstQ.prompt, firstQ.buttons)
+      : sendMessage(phone, firstQ.prompt);
   }
 
-  // ── Set description ────────────────────────────────────────────────────────
-  if (step === 'sell_description') {
-    const description = text.slice(0, 300);
-    await setSession(phone, 'sell_screenshots', { ...data, description, screenshots: [] });
+  // ── Questionnaire ──────────────────────────────────────────────────────────
+  if (step.startsWith('sell_q_')) {
+    const questions  = getQuestions(data.type);
+    const currentIdx = questions.findIndex(q => q.step === step);
+
+    if (currentIdx === -1) {
+      await clearSession(phone);
+      return sendMessage(phone, '❌ Something went wrong. Type *SELL* to start again.');
+    }
+
+    const updatedData = { ...data, [step]: text };
+    const nextQ       = questions[currentIdx + 1];
+
+    if (nextQ) {
+      await setSession(phone, nextQ.step, updatedData);
+      return nextQ.buttons
+        ? sendButtons(phone, nextQ.prompt, nextQ.buttons)
+        : sendMessage(phone, nextQ.prompt);
+    }
+
+    // All questions done — build description and move to screenshots
+    const description = buildDescription(updatedData);
+    await setSession(phone, 'sell_screenshots', { ...updatedData, description, screenshots: [] });
+
     return sendMessage(phone,
-      `✅ Description saved.\n\n` +
+      `✅ *Details confirmed! Here's your listing summary:*\n\n` +
+      `*Type:* ${TYPE_LABELS[updatedData.type]}\n` +
+      `*Price:* ₦${Number(updatedData.price).toLocaleString()}\n` +
+      `*Niche:* ${updatedData.niche}\n\n` +
       `Now send your *verification screenshots* 📸\n\n` +
       `Required:\n` +
       `1. AdSense dashboard (account status visible)\n` +
       `2. Payment history page\n` +
       `3. Account email visible\n\n` +
       `Send images one by one.\n` +
-      `Type *DONE* when you've sent all of them.`
+      `Type *DONE* when finished.`
     );
   }
 
@@ -118,7 +296,7 @@ export async function handleSell(
         return sendMessage(phone, '❌ Please send at least 1 screenshot before typing DONE.');
       }
 
-      const user      = await User.findOneAndUpdate(
+      const user = await User.findOneAndUpdate(
         { phone },
         { $setOnInsert: { phone } },
         { upsert: true, new: true }

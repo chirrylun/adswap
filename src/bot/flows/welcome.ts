@@ -12,8 +12,8 @@ export async function showWelcome(phone: string): Promise<void> {
     `⚡ 48hr dispute resolution\n\n` +
     `What would you like to do?`,
     [
-      { id: 'SELL',     title: '💰 Sell a digital asset' },
-      { id: 'LISTINGS', title: '🔍 Browse verified listings'  },
+      { id: 'SELL',     title: '💰 Sell an asset' },
+      { id: 'LISTINGS', title: '🔍 Browse listings'  },
       { id: 'HELP',     title: '❓ Help'              },
     ]
   );
@@ -23,7 +23,7 @@ export async function showHelp(phone: string): Promise<void> {
   await sendButtons(
     phone,
     `*AdSwap Commands* 📖\n\n` +
-    `*SELL* — List your account for sale\n` +
+    `*SELL* — List a digital asset for sale\n` +
     `*LISTINGS* — Browse verified listings\n` +
     `*BUY [ID]* — Buy a specific listing\n` +
     `*CONFIRM [TXN]* — Confirm account transfer\n` +
