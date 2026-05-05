@@ -1,8 +1,7 @@
 import { sendMessage, sendButtons, sendList } from '../../services/whatsapp';
-import { getSession, setSession, clearSession, updateSessionData } from '../session';
+import { setSession, clearSession, updateSessionData } from '../session';
 import { uploadScreenshot } from '../../services/cloudinary';
-import { createListingFeePayment } from '../../services/paystack';
-import { LISTING_FEES, TYPE_MAP, TYPE_LABELS, LISTING_EXPIRY_DAYS } from '../../config/constants';
+import { FEE_TIERS, TYPE_MAP, TYPE_LABELS, LISTING_EXPIRY_DAYS } from '../../config/constants';
 import Listing from '../../models/Listing';
 import User    from '../../models/User';
 import { generateId } from '../../utils/helpers';
@@ -25,6 +24,15 @@ const NICHES = [
 const NICHE_LABELS: Record<string, string> = Object.fromEntries(
   NICHES.map(n => [n.id, n.title])
 );
+
+// ─── Fee calculation ──────────────────────────────────────────────────────────
+function calcFee(price: number): { fee: number; rate: number } {
+  const tier = FEE_TIERS.find(t => price <= t.max) || FEE_TIERS[FEE_TIERS.length - 1];
+  return {
+    fee:  Math.round(price * tier.rate),
+    rate: tier.rate * 100,
+  };
+}
 
 // ─── Questionnaire ────────────────────────────────────────────────────────────
 type QuestionKey =
@@ -185,11 +193,12 @@ export async function handleSell(
     return sendMessage(phone,
       `*List an Account for Sale* 💰\n\n` +
       `What are you selling?\n\n` +
-      `1️⃣  Verified AdSense — ₦${LISTING_FEES.verified_adsense.toLocaleString()} fee\n` +
-      `2️⃣  Payment-received AdSense — ₦${LISTING_FEES.payment_received_adsense.toLocaleString()} fee\n` +
-      `3️⃣  Monetised Website Bundle — ₦${LISTING_FEES.website_bundle.toLocaleString()} fee\n` +
-      `4️⃣  YouTube Monetised Channel — ₦${LISTING_FEES.youtube_channel.toLocaleString()} fee\n\n` +
-      `Reply with a number (1–4)\n` +
+      `1️⃣  Verified AdSense\n` +
+      `2️⃣  Payment-received AdSense\n` +
+      `3️⃣  Monetised Website Bundle\n` +
+      `4️⃣  YouTube Monetised Channel\n\n` +
+      `Reply with a number (1–4)\n\n` +
+      `💡 *Listing is free. AdSwap only takes a small % of your sale price when your account is sold — nothing paid upfront.*\n\n` +
       `Type *CANCEL* to exit.`
     );
   }
@@ -216,8 +225,14 @@ export async function handleSell(
     if (isNaN(price) || price < 10000) {
       return sendMessage(phone, '❌ Invalid price. Minimum is ₦10,000.\nEnter numbers only, e.g. 950000');
     }
+    const { fee, rate } = calcFee(price);
     await setSession(phone, 'sell_niche', { ...data, price });
-    return sendNicheList(phone, `✅ Price set: *₦${price.toLocaleString()}*\n\nWhat niche is this account?`);
+    return sendNicheList(
+      phone,
+      `✅ Price set: *₦${price.toLocaleString()}*\n\n` +
+      `AdSwap fee on sale: *${rate}% (₦${fee.toLocaleString()})* — only charged when sold.\n\n` +
+      `What niche is this account?`
+    );
   }
 
   // ── Set niche ──────────────────────────────────────────────────────────────
@@ -254,7 +269,7 @@ export async function handleSell(
         : sendMessage(phone, nextQ.prompt);
     }
 
-    // All questions done — build description and move to screenshots
+    // All questions done — move to screenshots
     const description = buildDescription(updatedData);
     await setSession(phone, 'sell_screenshots', { ...updatedData, description, screenshots: [] });
 
@@ -286,6 +301,7 @@ export async function handleSell(
           `Send more or type *DONE* when finished.`
         );
       } catch (err) {
+        console.error('[SELL] Screenshot upload error:', err);
         return sendMessage(phone, '❌ Upload failed. Please try sending the image again.');
       }
     }
@@ -296,45 +312,51 @@ export async function handleSell(
         return sendMessage(phone, '❌ Please send at least 1 screenshot before typing DONE.');
       }
 
-      const user = await User.findOneAndUpdate(
-        { phone },
-        { $setOnInsert: { phone } },
-        { upsert: true, new: true }
-      );
+      console.log(`[SELL] DONE received for ${phone}, screenshots: ${screenshots.length}`);
 
-      const listingId = `ADS-${generateId(5)}`;
-      const fee       = LISTING_FEES[data.type];
-      const expiresAt = new Date(Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+      try {
+        const user = await User.findOneAndUpdate(
+          { phone },
+          { $setOnInsert: { phone } },
+          { upsert: true, new: true }
+        );
+        console.log(`[SELL] User found/created: ${user._id}`);
 
-      await Listing.create({
-        listingId,
-        seller:         user._id,
-        type:           data.type,
-        price:          data.price,
-        description:    data.description,
-        niche:          data.niche,
-        screenshotUrls: screenshots,
-        status:         'pending_verification',
-        listingFee:     fee,
-        feePaid:        false,
-        expiresAt,
-      });
+        const listingId    = `ADS-${generateId(5)}`;
+        const { fee, rate} = calcFee(data.price);
+        const expiresAt    = new Date(Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
-      const paymentLink = await createListingFeePayment(phone, listingId, fee);
-      await clearSession(phone);
+        await Listing.create({
+          listingId,
+          seller:         user._id,
+          type:           data.type,
+          price:          data.price,
+          description:    data.description,
+          niche:          data.niche,
+          screenshotUrls: screenshots,
+          status:         'pending_verification',
+          listingFee:     fee,
+          feePaid:        false,
+          expiresAt,
+        });
+        console.log(`[SELL] Listing created: ${listingId}`);
 
-      return sendMessage(phone,
-        `🎉 *Listing submitted for verification!*\n\n` +
-        `Listing ID: *${listingId}*\n` +
-        `Type: ${TYPE_LABELS[data.type]}\n` +
-        `Price: ₦${data.price.toLocaleString()}\n` +
-        `Listing fee: ₦${fee.toLocaleString()}\n\n` +
-        `*Pay listing fee to go live:*\n` +
-        `${paymentLink}\n\n` +
-        `Admin reviews within 24 hours.\n` +
-        `Your listing goes live once verified and fee is paid.\n\n` +
-        `Questions? Type *HELP*`
-      );
+        await clearSession(phone);
+
+        return sendMessage(phone,
+          `🎉 *Listing submitted for verification!*\n\n` +
+          `Listing ID: *${listingId}*\n` +
+          `Type: ${TYPE_LABELS[data.type]}\n` +
+          `Price: ₦${data.price.toLocaleString()}\n\n` +
+          `💡 *No upfront cost.* AdSwap charges *${rate}% (₦${fee.toLocaleString()})* only when your account is successfully sold.\n\n` +
+          `Admin reviews your listing within 24 hours.\n` +
+          `You'll be notified once it goes live.\n\n` +
+          `Questions? Type *HELP*`
+        );
+      } catch (err) {
+        console.error('[SELL] DONE handler error:', err);
+        return sendMessage(phone, '❌ Something went wrong saving your listing. Please try again or type *HELP*.');
+      }
     }
 
     return sendMessage(phone, 'Please send a screenshot image, or type *DONE* if finished.');
