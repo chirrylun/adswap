@@ -1,12 +1,11 @@
 // src/middleware/rateLimiter.ts
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import slowDown  from 'express-slow-down';
 import { Request, Response, NextFunction } from 'express';
 
 // ─── 1. Global API limiter ────────────────────────────────────────────────────
-// Applies to all routes. Stops bulk hammering.
 export const globalLimiter = rateLimit({
-  windowMs:         15 * 60 * 1000, // 15 minutes
+  windowMs:         15 * 60 * 1000,
   max:              500,
   standardHeaders:  true,
   legacyHeaders:    false,
@@ -15,24 +14,21 @@ export const globalLimiter = rateLimit({
 });
 
 // ─── 2. Webhook limiter ───────────────────────────────────────────────────────
-// WhatsApp sends bursts — allow higher limit but still cap abuse
 export const webhookLimiter = rateLimit({
-  windowMs:        1 * 60 * 1000,  // 1 minute
+  windowMs:        1 * 60 * 1000,
   max:             120,
   standardHeaders: true,
   legacyHeaders:   false,
-  keyGenerator:    (req) => {
-    // Key by sender phone if available, fallback to IP
-    const body   = req.body;
-    const phone  = body?.entry?.[0]?.changes?.[0]
-                       ?.value?.messages?.[0]?.from;
-    return phone || req.ip || 'unknown';
-  },
+ keyGenerator: (req) => {
+  const body  = (req as any).body;
+  const phone = body?.entry?.[0]?.changes?.[0]
+                    ?.value?.messages?.[0]?.from;
+  return phone || ipKeyGenerator(req as any);
+},
   message: { error: 'Webhook rate limit exceeded.' },
 });
 
 // ─── 3. Per-phone bot limiter ─────────────────────────────────────────────────
-// Prevents one user spamming the bot
 const phoneMessageCounts = new Map<string, { count: number; reset: number }>();
 
 export function perPhoneLimiter(
@@ -43,9 +39,9 @@ export function perPhoneLimiter(
   const phone = extractPhone(req.body);
   if (!phone) return next();
 
-  const now   = Date.now();
-  const limit = 20;              // max 20 messages
-  const window = 60 * 1000;     // per 60 seconds
+  const now    = Date.now();
+  const limit  = 20;
+  const window = 60 * 1000;
 
   const record = phoneMessageCounts.get(phone);
 
@@ -55,11 +51,10 @@ export function perPhoneLimiter(
   }
 
   if (record.count >= limit) {
-    // Don't respond with HTTP error — send WhatsApp message instead
     res.sendStatus(200);
-    // Import sendMessage lazily to avoid circular deps
     import('../services/whatsapp').then(({ sendMessage }) => {
-      sendMessage(phone,
+      sendMessage(
+        phone,
         '⚠️ You\'re sending messages too fast.\n\nPlease wait a minute and try again.'
       ).catch(console.error);
     });
@@ -73,7 +68,7 @@ export function perPhoneLimiter(
 
 // ─── 4. Admin route limiter ───────────────────────────────────────────────────
 export const adminLimiter = rateLimit({
-  windowMs:        10 * 60 * 1000, // 10 minutes
+  windowMs:        10 * 60 * 1000,
   max:             100,
   standardHeaders: true,
   legacyHeaders:   false,
@@ -82,8 +77,8 @@ export const adminLimiter = rateLimit({
 
 // ─── 5. Login brute-force protection ─────────────────────────────────────────
 export const loginLimiter = rateLimit({
-  windowMs:        15 * 60 * 1000, // 15 minutes
-  max:             5,              // only 5 login attempts
+  windowMs:        15 * 60 * 1000,
+  max:             5,
   standardHeaders: true,
   legacyHeaders:   false,
   message:         { error: 'Too many login attempts. Try again in 15 minutes.' },
@@ -91,9 +86,9 @@ export const loginLimiter = rateLimit({
 
 // ─── 6. Slow down repeated requests ──────────────────────────────────────────
 export const speedLimiter = slowDown({
-  windowMs:        15 * 60 * 1000,
-  delayAfter:      50,             // start slowing after 50 requests
-  delayMs:         () => 500,      // add 500ms delay per request after limit
+  windowMs:    15 * 60 * 1000,
+  delayAfter:  50,
+  delayMs:     () => 500,
 });
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
