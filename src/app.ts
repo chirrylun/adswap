@@ -22,6 +22,9 @@ app.use(helmet({
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+app.use('/webhook', cors());
+
+// Restricted CORS for everything else
 app.use(cors({
   origin: [
     process.env.APP_URL!,
