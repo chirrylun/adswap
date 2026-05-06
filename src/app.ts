@@ -4,12 +4,14 @@ import express, { Request, Response } from 'express';
 import cors    from 'cors';
 import helmet  from 'helmet';
 import morgan  from 'morgan';
+import cookieParser from 'cookie-parser';
 
 import { connectDB }     from './config/db';
 import { errorHandler }  from './middleware/errorHandler';
 import { globalLimiter, speedLimiter } from './middleware/rateLimiter';
 import webhookRouter     from './routes/webhook';
 import adminRouter       from './routes/admin';
+import adminAuthRouter   from './routes/adminAuth';
 
 const app = express();
 
@@ -28,11 +30,14 @@ app.use('/webhook', cors());
 app.use(cors({
   origin: [
     process.env.APP_URL!,
+    process.env.ADMIN_URL!,
     'https://graph.facebook.com',
   ],
   methods:     ['GET', 'POST'],
   credentials: true,
 }));
+
+app.use(cookieParser());
 
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 // CRITICAL: Webhook routes need raw body for signature verification
@@ -84,6 +89,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/webhook', webhookRouter);
+app.use('/admin',   adminAuthRouter);
 app.use('/admin',   adminRouter);
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
