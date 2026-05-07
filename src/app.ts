@@ -33,7 +33,7 @@ app.use(cors({
     process.env.ADMIN_URL!,
     'https://graph.facebook.com',
   ],
-  methods:     ['GET', 'POST'],
+  methods:     ['GET', 'POST', 'OPTIONS'],
   credentials: true,
 }));
 
@@ -86,6 +86,15 @@ app.get('/health', (_req: Request, res: Response) => {
     env:       process.env.NODE_ENV,
   });
 });
+
+app.options('*', cors({
+  origin: [
+    process.env.APP_URL!,
+    process.env.ADMIN_URL!,
+    'https://graph.facebook.com',
+  ],
+  credentials: true,
+}));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/webhook', webhookRouter);
