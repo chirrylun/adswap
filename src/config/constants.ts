@@ -1,9 +1,12 @@
 export const LISTING_FEES: Record<string, number> = {
-  google_ad_account:   1500,  // competitive, high volume listing type
+  google_ad_account:   1500,
   facebook_ad_account: 1500,
-  adsense_site:        2000,  // slightly higher, more complex to verify
+  adsense_site:        2000,
   play_console:        2000,
-  gift_card:           500,   // low barrier, low-effort listing
+  gift_card:           500,
+  twitter_account:     1000,
+  instagram_account:   1000,
+  tiktok_account:      1000,
 };
 
 export const FEE_TIERS = [
@@ -25,6 +28,9 @@ export const TYPE_MAP: Record<string, string> = {
   '3': 'adsense_site',
   '4': 'play_console',
   '5': 'gift_card',
+  '6': 'twitter_account',
+  '7': 'instagram_account',
+  '8': 'tiktok_account',
 };
 
 export const TYPE_LABELS: Record<string, string> = {
@@ -33,6 +39,9 @@ export const TYPE_LABELS: Record<string, string> = {
   adsense_site:        'AdSense Monetised Site',
   play_console:        'Google Play Console Account',
   gift_card:           'Gift Card',
+  twitter_account:     'Twitter / X Account',
+  instagram_account:   'Instagram Account',
+  tiktok_account:      'TikTok Account',
 };
 
 export const SESSION_STEPS = {

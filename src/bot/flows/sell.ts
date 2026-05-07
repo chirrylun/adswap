@@ -89,6 +89,102 @@ function getQuestions(type: string): Question[] {
         },
       ];
 
+      case 'twitter_account':
+  return [
+    {
+      step:   'sell_q_tw_followers',
+      prompt: `*Step 1 of 5 — Followers* 👥\n\nHow many followers does this Twitter/X account have?\n\nExamples: _5,000_, _50K_, _200K_\n\nType your answer:`,
+    },
+    {
+      step:   'sell_q_tw_age',
+      prompt: `*Step 2 of 5 — Account Age* 📅\n\nHow old is this Twitter/X account?\n\nExamples: _2 years_, _5 years_\n\nType your answer:`,
+    },
+    {
+      step:   'sell_q_tw_niche',
+      prompt: `*Step 3 of 5 — Niche* 🏷️\n\nWhat niche or topic does this account post about?\n\nExamples: _Finance_, _Football_, _Tech_, _Comedy_\n\nType your answer:`,
+    },
+    {
+      step:    'sell_q_tw_monetized',
+      prompt:  `*Step 4 of 5 — Monetization* 💰\n\nIs this account enrolled in X (Twitter) monetization or Creator program?`,
+      buttons: [
+        { id: 'TW_MON_YES', title: '✅ Yes — monetized'   },
+        { id: 'TW_MON_NO',  title: '❌ Not monetized'     },
+      ],
+    },
+    {
+      step:    'sell_q_tw_suspended',
+      prompt:  `*Step 5 of 5 — Account Status* ⚠️\n\nHas this account ever been suspended or restricted?`,
+      buttons: [
+        { id: 'TW_SUSP_NO',  title: '✅ Never suspended'  },
+        { id: 'TW_SUSP_YES', title: '⚠️ Was suspended'    },
+      ],
+    },
+  ];
+
+case 'instagram_account':
+  return [
+    {
+      step:   'sell_q_ig_followers',
+      prompt: `*Step 1 of 5 — Followers* 👥\n\nHow many followers does this Instagram account have?\n\nExamples: _10,000_, _100K_, _500K_\n\nType your answer:`,
+    },
+    {
+      step:   'sell_q_ig_age',
+      prompt: `*Step 2 of 5 — Account Age* 📅\n\nHow old is this Instagram account?\n\nExamples: _1 year_, _4 years_\n\nType your answer:`,
+    },
+    {
+      step:   'sell_q_ig_niche',
+      prompt: `*Step 3 of 5 — Niche* 🏷️\n\nWhat niche does this account focus on?\n\nExamples: _Fashion_, _Fitness_, _Food_, _Travel_, _Memes_\n\nType your answer:`,
+    },
+    {
+      step:    'sell_q_ig_monetized',
+      prompt:  `*Step 4 of 5 — Monetization* 💰\n\nIs this account eligible for or enrolled in Instagram's Creator monetization (Badges, Subscriptions, Bonuses)?`,
+      buttons: [
+        { id: 'IG_MON_YES', title: '✅ Yes — monetized'  },
+        { id: 'IG_MON_NO',  title: '❌ Not monetized'    },
+      ],
+    },
+    {
+      step:    'sell_q_ig_restricted',
+      prompt:  `*Step 5 of 5 — Account Status* ⚠️\n\nDoes this account have any restrictions or policy strikes?`,
+      buttons: [
+        { id: 'IG_RES_NO',  title: '✅ Clean account'    },
+        { id: 'IG_RES_YES', title: '⚠️ Has restrictions' },
+      ],
+    },
+  ];
+
+case 'tiktok_account':
+  return [
+    {
+      step:   'sell_q_tt_followers',
+      prompt: `*Step 1 of 5 — Followers* 👥\n\nHow many followers does this TikTok account have?\n\nExamples: _10,000_, _100K_, _1M_\n\nType your answer:`,
+    },
+    {
+      step:   'sell_q_tt_age',
+      prompt: `*Step 2 of 5 — Account Age* 📅\n\nHow old is this TikTok account?\n\nExamples: _1 year_, _3 years_\n\nType your answer:`,
+    },
+    {
+      step:   'sell_q_tt_niche',
+      prompt: `*Step 3 of 5 — Niche* 🏷️\n\nWhat niche or content type does this account post?\n\nExamples: _Comedy_, _Dance_, _Finance_, _Lifestyle_\n\nType your answer:`,
+    },
+    {
+      step:    'sell_q_tt_monetized',
+      prompt:  `*Step 4 of 5 — Monetization* 💰\n\nIs this account in the TikTok Creator Fund, LIVE Gifts, or Series program?`,
+      buttons: [
+        { id: 'TT_MON_YES', title: '✅ Yes — monetized'  },
+        { id: 'TT_MON_NO',  title: '❌ Not monetized'    },
+      ],
+    },
+    {
+      step:    'sell_q_tt_lives',
+      prompt:  `*Step 5 of 5 — LIVE Access* 🔴\n\nDoes this account have TikTok LIVE enabled?`,
+      buttons: [
+        { id: 'TT_LIVE_YES', title: '✅ LIVE enabled'    },
+        { id: 'TT_LIVE_NO',  title: '❌ No LIVE access'  },
+      ],
+    },
+  ];
+
     // ── AdSense Monetised Site ──────────────────────────────────────────────
     case 'adsense_site':
       return [
@@ -197,6 +293,33 @@ function buildDescription(type: string, data: Record<string, any>): string {
         `Restrictions: ${yesNo(data.sell_q_meta_restricted, 'META_RES_YES')}`,
       ].join(' | ');
 
+      case 'twitter_account':
+  return [
+    `Followers: ${data.sell_q_tw_followers}`,
+    `Age: ${data.sell_q_tw_age}`,
+    `Niche: ${data.sell_q_tw_niche}`,
+    `Monetized: ${yesNo(data.sell_q_tw_monetized, 'TW_MON_YES')}`,
+    `Suspended: ${yesNo(data.sell_q_tw_suspended, 'TW_SUSP_YES')}`,
+  ].join(' | ');
+
+case 'instagram_account':
+  return [
+    `Followers: ${data.sell_q_ig_followers}`,
+    `Age: ${data.sell_q_ig_age}`,
+    `Niche: ${data.sell_q_ig_niche}`,
+    `Monetized: ${yesNo(data.sell_q_ig_monetized, 'IG_MON_YES')}`,
+    `Restricted: ${yesNo(data.sell_q_ig_restricted, 'IG_RES_YES')}`,
+  ].join(' | ');
+
+case 'tiktok_account':
+  return [
+    `Followers: ${data.sell_q_tt_followers}`,
+    `Age: ${data.sell_q_tt_age}`,
+    `Niche: ${data.sell_q_tt_niche}`,
+    `Monetized: ${yesNo(data.sell_q_tt_monetized, 'TT_MON_YES')}`,
+    `LIVE access: ${yesNo(data.sell_q_tt_lives, 'TT_LIVE_YES')}`,
+  ].join(' | ');
+
     case 'adsense_site':
   return [
     `Age: ${data.sell_q_ads_age}`,
@@ -245,6 +368,32 @@ function buildListingFields(type: string, data: Record<string, any>): Record<str
         metaPixelAttached:   data.sell_q_meta_pixel === 'META_PIX_YES',
         metaRestricted:      data.sell_q_meta_restricted === 'META_RES_YES',
       };
+      case 'twitter_account':
+  return {
+    twitterFollowers: data.sell_q_tw_followers,
+    twitterAge:       data.sell_q_tw_age,
+    twitterNiche:     data.sell_q_tw_niche,
+    twitterMonetized: data.sell_q_tw_monetized === 'TW_MON_YES',
+    twitterSuspended: data.sell_q_tw_suspended === 'TW_SUSP_YES',
+  };
+
+case 'instagram_account':
+  return {
+    instagramFollowers:  data.sell_q_ig_followers,
+    instagramAge:        data.sell_q_ig_age,
+    instagramNiche:      data.sell_q_ig_niche,
+    instagramMonetized:  data.sell_q_ig_monetized === 'IG_MON_YES',
+    instagramRestricted: data.sell_q_ig_restricted === 'IG_RES_YES',
+  };
+
+case 'tiktok_account':
+  return {
+    tiktokFollowers: data.sell_q_tt_followers,
+    tiktokAge:       data.sell_q_tt_age,
+    tiktokNiche:     data.sell_q_tt_niche,
+    tiktokMonetized: data.sell_q_tt_monetized === 'TT_MON_YES',
+    tiktokLives:     data.sell_q_tt_lives     === 'TT_LIVE_YES',
+  };
     case 'adsense_site':
       return {
         adsenseAge:             data.sell_q_ads_age,
@@ -278,7 +427,16 @@ function screenshotGuide(type: string): string {
       return `📸 *Required screenshots:*\n1. Google Ads dashboard (account overview visible)\n2. Billing summary showing spend history\n3. Account email address visible`;
     case 'facebook_ad_account':
       return `📸 *Required screenshots:*\n1. Facebook Ads Manager overview\n2. Billing or payment history\n3. Account email and spend limit visible`;
-    case 'adsense_site':
+    case 'twitter_account':
+  return `📸 *Required screenshots:*\n1. Profile page showing follower count and handle\n2. Account analytics or post engagement\n3. Account email visible in settings`;
+
+case 'instagram_account':
+  return `📸 *Required screenshots:*\n1. Profile page showing follower count and username\n2. Account insights or post reach\n3. Account email visible in settings`;
+
+case 'tiktok_account':
+  return `📸 *Required screenshots:*\n1. Profile page showing follower count and username\n2. Creator dashboard or analytics\n3. Account email visible in settings`;
+
+      case 'adsense_site':
       return `📸 *Required screenshots:*\n1. AdSense dashboard (account status visible)\n2. Payment history page\n3. Account email visible`;
     case 'play_console':
       return `📸 *Required screenshots:*\n1. Play Console dashboard showing published apps\n2. Revenue or stats overview\n3. Account email visible`;
@@ -320,6 +478,36 @@ function buildAdminAlert(
         `⚠️ Restricted: ${extra.metaRestricted ? 'Yes' : 'No'}`,
       ].filter(Boolean).join('\n');
       break;
+
+      case 'twitter_account':
+  details = [
+    extra.twitterFollowers && `👥 Followers: ${extra.twitterFollowers}`,
+    extra.twitterAge       && `📅 Age: ${extra.twitterAge}`,
+    extra.twitterNiche     && `🏷️ Niche: ${extra.twitterNiche}`,
+    `💰 Monetized: ${extra.twitterMonetized ? 'Yes' : 'No'}`,
+    `⚠️ Suspended: ${extra.twitterSuspended ? 'Yes' : 'No'}`,
+  ].filter(Boolean).join('\n');
+  break;
+
+case 'instagram_account':
+  details = [
+    extra.instagramFollowers && `👥 Followers: ${extra.instagramFollowers}`,
+    extra.instagramAge       && `📅 Age: ${extra.instagramAge}`,
+    extra.instagramNiche     && `🏷️ Niche: ${extra.instagramNiche}`,
+    `💰 Monetized: ${extra.instagramMonetized  ? 'Yes' : 'No'}`,
+    `⚠️ Restricted: ${extra.instagramRestricted ? 'Yes' : 'No'}`,
+  ].filter(Boolean).join('\n');
+  break;
+
+case 'tiktok_account':
+  details = [
+    extra.tiktokFollowers && `👥 Followers: ${extra.tiktokFollowers}`,
+    extra.tiktokAge       && `📅 Age: ${extra.tiktokAge}`,
+    extra.tiktokNiche     && `🏷️ Niche: ${extra.tiktokNiche}`,
+    `💰 Monetized: ${extra.tiktokMonetized ? 'Yes' : 'No'}`,
+    `🔴 LIVE access: ${extra.tiktokLives   ? 'Yes' : 'No'}`,
+  ].filter(Boolean).join('\n');
+  break;
 
     case 'adsense_site':
       details = [
@@ -374,20 +562,24 @@ export async function handleSell(
 
   // ── Entry ──────────────────────────────────────────────────────────────────
   if (text === 'SELL') {
-    await setSession(phone, 'sell_type', {});
-    return sendMessage(phone,
-      `💰 *List an Account or Asset for Sale*\n\n` +
-      `What are you selling?\n\n` +
-      `1️⃣  Google Ads Account\n` +
-      `2️⃣  Facebook/Meta Ads Account\n` +
-      `3️⃣  AdSense Monetised Site\n` +
-      `4️⃣  Google Play Console Account\n` +
-      `5️⃣  Gift Card\n\n` +
-      `Reply with a number (1–5)\n\n` +
-      `💡 *Listing is free.* AdSwap only charges a small % when your item is sold — nothing upfront.\n\n` +
-      `Type *CANCEL* to go back.`
-    );
-  }
+  await setSession(phone, 'sell_type', {});
+  return sendMessage(phone,
+    `💰 *List an Account or Asset for Sale*\n\n` +
+    `What are you selling?\n\n` +
+    `1️⃣  Google Ads Account\n` +
+    `2️⃣  Facebook/Meta Ads Account\n` +
+    `3️⃣  AdSense Monetised Site\n` +
+    `4️⃣  Google Play Console Account\n` +
+    `5️⃣  Gift Card\n` +
+    `6️⃣  Twitter / X Account\n` +
+    `7️⃣  Instagram Account\n` +
+    `8️⃣  TikTok Account\n\n` +
+    `Reply with a number (1–8)\n\n` +
+    `💡 *Listing is free.* AdSwap only charges a small % when your item is sold — nothing upfront.\n\n` +
+    `Type *CANCEL* to go back.`
+  );
+}
+
 
   // ── Select type ────────────────────────────────────────────────────────────
   if (step === 'sell_type') {

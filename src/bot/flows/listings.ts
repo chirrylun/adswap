@@ -20,6 +20,34 @@ function formatListingSnippet(l: any): string {
         l.metaPixelAttached ? '📊 Pixel ✓' : null,
       ].filter(Boolean).join('  ');
 
+      case 'twitter_account':
+  return [
+    l.twitterFollowers && `👥 ${l.twitterFollowers}`,
+    l.twitterAge       && `📅 ${l.twitterAge}`,
+    l.twitterNiche     && `🏷️ ${l.twitterNiche}`,
+    l.twitterMonetized ? '💰 Monetized ✓' : null,
+    l.twitterSuspended ? '⚠️ Was suspended' : '✅ Clean',
+  ].filter(Boolean).join('  ');
+
+case 'instagram_account':
+  return [
+    l.instagramFollowers && `👥 ${l.instagramFollowers}`,
+    l.instagramAge       && `📅 ${l.instagramAge}`,
+    l.instagramNiche     && `🏷️ ${l.instagramNiche}`,
+    l.instagramMonetized  ? '💰 Monetized ✓' : null,
+    l.instagramRestricted ? '⚠️ Restricted'  : '✅ Clean',
+  ].filter(Boolean).join('  ');
+
+case 'tiktok_account':
+  return [
+    l.tiktokFollowers && `👥 ${l.tiktokFollowers}`,
+    l.tiktokAge       && `📅 ${l.tiktokAge}`,
+    l.tiktokNiche     && `🏷️ ${l.tiktokNiche}`,
+    l.tiktokMonetized ? '💰 Monetized ✓'   : null,
+    l.tiktokLives     ? '🔴 LIVE enabled ✓' : null,
+    l.tiktokBanned    ? '⚠️ Was banned'     : '✅ Clean',
+  ].filter(Boolean).join('  ');
+
     case 'adsense_site':
       return [
         l.adsenseAge             && `📅 ${l.adsenseAge}`,
@@ -67,6 +95,34 @@ function formatFullDetails(l: any): string {
         `  📊  Pixel            ${l.metaPixelAttached ? 'Attached ✓' : 'Not attached'}`,
         `  🔒  Status           ${l.metaRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
       ].join('\n');
+
+      case 'twitter_account':
+  return [
+    `  👥  Followers         ${l.twitterFollowers ?? '—'}`,
+    `  📅  Age               ${l.twitterAge ?? '—'}`,
+    `  🏷️  Niche             ${l.twitterNiche ?? '—'}`,
+    `  💰  Monetized         ${l.twitterMonetized ? 'Yes ✓' : 'No'}`,
+    `  🔒  Status            ${l.twitterSuspended ? '⚠️ Was suspended' : '✅ Clean'}`,
+  ].join('\n');
+
+case 'instagram_account':
+  return [
+    `  👥  Followers         ${l.instagramFollowers ?? '—'}`,
+    `  📅  Age               ${l.instagramAge ?? '—'}`,
+    `  🏷️  Niche             ${l.instagramNiche ?? '—'}`,
+    `  💰  Monetized         ${l.instagramMonetized  ? 'Yes ✓' : 'No'}`,
+    `  🔒  Status            ${l.instagramRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
+  ].join('\n');
+
+case 'tiktok_account':
+  return [
+    `  👥  Followers         ${l.tiktokFollowers ?? '—'}`,
+    `  📅  Age               ${l.tiktokAge ?? '—'}`,
+    `  🏷️  Niche             ${l.tiktokNiche ?? '—'}`,
+    `  💰  Monetized         ${l.tiktokMonetized ? 'Yes ✓' : 'No'}`,
+    `  🔴  LIVE Access       ${l.tiktokLives    ? 'Yes ✓' : 'No'}`,
+    `  🔒  Status            ${l.tiktokBanned   ? '⚠️ Was banned' : '✅ Clean'}`,
+  ].join('\n');
 
     case 'adsense_site':
       return [

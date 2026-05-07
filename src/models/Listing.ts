@@ -5,7 +5,10 @@ export type ListingType =
   | 'facebook_ad_account'
   | 'adsense_site'
   | 'play_console'
-  | 'gift_card';
+  | 'gift_card'
+  | 'twitter_account'
+  | 'instagram_account'
+  | 'tiktok_account';
 
 export type ListingStatus =
   | 'pending_verification'
@@ -35,6 +38,28 @@ export interface IListing extends Document {
   metaPixelAttached?:    boolean;
   metaRestricted?:       boolean;
   metaBusinessManager?:  boolean; // is it a BM account
+
+  // ── Twitter specific ───────────────────────────────────────────────────────
+  twitterFollowers?:    string;
+  twitterNiche?:        string;
+  twitterAge?:          string;
+  twitterMonetized?:    boolean;
+  twitterSuspended?:    boolean;
+
+  // ── Instagram specific ─────────────────────────────────────────────────────
+  instagramFollowers?:  string;
+  instagramNiche?:      string;
+  instagramAge?:        string;
+  instagramMonetized?:  boolean;
+  instagramRestricted?: boolean;
+
+  // ── TikTok specific ────────────────────────────────────────────────────────
+  tiktokFollowers?:     string;
+  tiktokNiche?:         string;
+  tiktokAge?:           string;
+  tiktokMonetized?:     boolean;
+  tiktokLives?:         boolean; // has LIVE access
+  tiktokBanned?:        boolean;
 
   // ── AdSense site specific ──────────────────────────────────────────────────
   adsenseMonthlyEarnings?: string;
@@ -70,11 +95,15 @@ const ListingSchema = new Schema<IListing>(
   {
     listingId:  { type: String, required: true, unique: true, index: true },
     seller:     { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    type:       {
-      type:     String,
-      required: true,
-      enum:     ['google_ad_account','facebook_ad_account','adsense_site','play_console','gift_card'],
-    },
+    type: {
+  type:     String,
+  required: true,
+  enum:     [
+    'google_ad_account','facebook_ad_account','adsense_site',
+    'play_console','gift_card',
+    'twitter_account','instagram_account','tiktok_account',
+  ],
+},
     price:       { type: Number, required: true, min: 1000 },
     description: { type: String, required: true, maxlength: 600 },
     niche:       { type: String, maxlength: 100 },
@@ -92,6 +121,28 @@ const ListingSchema = new Schema<IListing>(
     metaPixelAttached:   { type: Boolean },
     metaRestricted:      { type: Boolean },
     metaBusinessManager: { type: Boolean },
+
+    // Twitter
+twitterFollowers:    { type: String },
+twitterNiche:        { type: String },
+twitterAge:          { type: String },
+twitterMonetized:    { type: Boolean },
+twitterSuspended:    { type: Boolean },
+
+// Instagram
+instagramFollowers:  { type: String },
+instagramNiche:      { type: String },
+instagramAge:        { type: String },
+instagramMonetized:  { type: Boolean },
+instagramRestricted: { type: Boolean },
+
+// TikTok
+tiktokFollowers:     { type: String },
+tiktokNiche:         { type: String },
+tiktokAge:           { type: String },
+tiktokMonetized:     { type: Boolean },
+tiktokLives:         { type: Boolean },
+tiktokBanned:        { type: Boolean },
 
     // AdSense
     adsenseMonthlyEarnings: { type: String },
