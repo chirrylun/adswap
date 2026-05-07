@@ -6,9 +6,10 @@ export const LISTING_FEES: Record<string, number> = {
 };
 
 export const FEE_TIERS = [
-  { max: 300000,   rate: 0.08 },
-  { max: 1000000,  rate: 0.06 },
-  { max: Infinity, rate: 0.04 },
+  { max: 50_000,     rate: 0.10 }, // 10% for listings up to ₦50k
+  { max: 200_000,    rate: 0.08 }, // 8%  for ₦50k–₦200k
+  { max: 500_000,    rate: 0.06 }, // 6%  for ₦200k–₦500k
+  { max: Infinity,   rate: 0.05 }, // 5%  for ₦500k+
 ];
 
 export const LISTING_EXPIRY_DAYS    = 30;
@@ -17,17 +18,19 @@ export const CONFIRM_WINDOW_HOURS   = 48;
 export const DISPUTE_RESPONSE_HOURS = 4;
 
 export const TYPE_MAP: Record<string, string> = {
-  '1': 'verified_adsense',
-  '2': 'payment_received_adsense',
-  '3': 'website_bundle',
-  '4': 'youtube_channel',
+  '1': 'google_ad_account',
+  '2': 'facebook_ad_account',
+  '3': 'adsense_site',
+  '4': 'play_console',
+  '5': 'gift_card',
 };
 
 export const TYPE_LABELS: Record<string, string> = {
-  verified_adsense:          'Verified AdSense',
-  payment_received_adsense:  'Payment-Received AdSense',
-  website_bundle:            'Website Bundle',
-  youtube_channel:           'YouTube Channel',
+  google_ad_account:   'Google Ads Account',
+  facebook_ad_account: 'Facebook/Meta Ads Account',
+  adsense_site:        'AdSense Monetised Site',
+  play_console:        'Google Play Console Account',
+  gift_card:           'Gift Card',
 };
 
 export const SESSION_STEPS = {
