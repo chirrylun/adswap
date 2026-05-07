@@ -1,17 +1,94 @@
 import { sendMessage } from '../../services/whatsapp';
 import { setSession, clearSession } from '../session';
 import { createEscrowPayment, calculateFee } from '../../services/paystack';
+import { TYPE_LABELS } from '../../config/constants';
 import Listing     from '../../models/Listing';
 import Transaction from '../../models/Transaction';
 import User        from '../../models/User';
 import { generateId } from '../../utils/helpers';
 import { ISession } from '../../models/Session';
 
+function formatListingSnippet(listing: any): string {
+  const l = listing;
+  switch (l.type) {
+    case 'google_ad_account':
+      return [
+        l.googleAdsAccountAge && `📅 Age: ${l.googleAdsAccountAge}`,
+        l.googleAdsSpend      && `💸 Spend: ${l.googleAdsSpend}`,
+        l.googleAdsCurrency   && `(${l.googleAdsCurrency})`,
+        l.googleAdsSuspended  ? '⚠️ Was suspended' : '✅ Clean',
+      ].filter(Boolean).join('  ');
+
+    case 'facebook_ad_account':
+      return [
+        l.metaAccountAge  && `📅 Age: ${l.metaAccountAge}`,
+        l.metaSpendLimit  && `💳 Limit: ${l.metaSpendLimit}`,
+        l.metaRestricted  ? '⚠️ Has restrictions' : '✅ Clean',
+        l.metaPixelAttached ? '📊 Pixel ✓' : null,
+      ].filter(Boolean).join('  ');
+
+    case 'adsense_site':
+      return [
+        l.adsenseAge             && `📅 Age: ${l.adsenseAge}`,
+        l.adsenseMonthlyEarnings && `💰 ${l.adsenseMonthlyEarnings}/mo`,
+        l.adsenseSiteUrl         && `🌐 ${l.adsenseSiteUrl}`,
+        l.adsenseViolations      ? '⚠️ Has violations' : '✅ Clean',
+      ].filter(Boolean).join('  ');
+
+    case 'play_console':
+      return [
+        l.playConsoleAge     && `📅 Age: ${l.playConsoleAge}`,
+        l.playConsoleApps    && `📱 ${l.playConsoleApps} apps`,
+        l.playConsoleRevenue && `💵 ${l.playConsoleRevenue}/mo`,
+        l.playConsoleSuspended ? '⚠️ Had issues' : '✅ Clean',
+      ].filter(Boolean).join('  ');
+
+    case 'gift_card':
+      return [
+        l.giftCardBrand    && l.giftCardBrand,
+        l.giftCardValue    && `💵 ${l.giftCardValue}`,
+        l.giftCardCurrency && `🌍 ${l.giftCardCurrency}`,
+      ].filter(Boolean).join('  ');
+
+    default:
+      return '';
+  }
+}
+
 export async function handleBuy(
   phone:   string,
   text:    string,
   session: ISession
 ): Promise<void> {
+
+  // ── LISTINGS — browse active listings ──────────────────────────────────────
+  if (text === 'LISTINGS') {
+    const listings = await Listing.find({ status: 'active' })
+      .sort({ isFeatured: -1, createdAt: -1 })
+      .limit(10);
+
+    if (!listings.length) {
+      return sendMessage(phone, '😔 No active listings right now.\n\nCheck back soon or type *SELL* to list something!');
+    }
+
+    const lines = listings.map((l, i) => {
+      const snippet = formatListingSnippet(l);
+      return (
+        `*${i + 1}. ${TYPE_LABELS[l.type] ?? l.type}*${l.isFeatured ? ' ⭐' : ''}\n` +
+        `💰 ₦${l.price.toLocaleString()}\n` +
+        (snippet ? `${snippet}\n` : '') +
+        `🆔 \`BUY ${l.listingId}\``
+      );
+    });
+
+    return sendMessage(phone,
+      `🛒 *Active Listings* (${listings.length})\n\n` +
+      lines.join('\n\n') +
+      `\n\n─────────────────\n` +
+      `To buy, copy and send the *BUY [ID]* command under any listing.\n\n` +
+      `Type *SELL* to list your own.`
+    );
+  }
 
   // ── BUY ADS-XXXXX ──────────────────────────────────────────────────────────
   if (text.startsWith('BUY ')) {
@@ -30,12 +107,10 @@ export async function handleBuy(
       { upsert: true, new: true }
     );
 
-    // Prevent self-purchase
     if (listing.seller.phone === phone) {
       return sendMessage(phone, "❌ You can't buy your own listing.");
     }
 
-    // Check for existing pending transaction
     const existing = await Transaction.findOne({
       listing: listing._id,
       buyer:   buyer._id,
@@ -56,6 +131,7 @@ export async function handleBuy(
 
     const { fee, sellerReceives } = calculateFee(listing.price);
     const transactionId           = `TXN-${generateId(6)}`;
+    const snippet                 = formatListingSnippet(listing);
 
     await Transaction.create({
       transactionId,
@@ -76,9 +152,11 @@ export async function handleBuy(
 
     return sendMessage(phone,
       `🔒 *AdSwap Escrow Protection*\n\n` +
-      `You're buying: *${listingId}*\n` +
-      `Amount: ₦${listing.price.toLocaleString()}\n` +
-      `Platform fee (included): ₦${fee.toLocaleString()}\n\n` +
+      `*${TYPE_LABELS[listing.type] ?? listing.type}*\n` +
+      `🆔 ${listingId}\n` +
+      (snippet ? `${snippet}\n` : '') +
+      `💰 Price: ₦${listing.price.toLocaleString()}\n` +
+      `🏦 Platform fee (included): ₦${fee.toLocaleString()}\n\n` +
       `*How escrow works:*\n` +
       `1️⃣  You pay AdSwap — not the seller\n` +
       `2️⃣  We hold your money securely\n` +
@@ -93,7 +171,6 @@ export async function handleBuy(
   }
 }
 
-// ── Seller signals ready to transfer ─────────────────────────────────────────
 export async function handleSellerReady(
   phone: string,
   text:  string
@@ -121,7 +198,6 @@ export async function handleSellerReady(
 
   const buyer = txn.buyer as any;
 
-  // Notify buyer
   await sendMessage(buyer.phone,
     `🔔 *Seller is ready to transfer!*\n\n` +
     `Transaction: *${txnId}*\n\n` +
@@ -130,9 +206,11 @@ export async function handleSellerReady(
     `2. Seller will share login credentials here\n` +
     `3. Log in and verify you have full access\n` +
     `4. Change password and 2FA immediately\n` +
-    `5. Confirm: *CONFIRM ${txnId}*\n\n` +
+    `5. Confirm:\n` +
+    `\`CONFIRM ${txnId}\`\n\n` +
     `You have 48 hours to confirm.\n` +
-    `Problems? Reply: *DISPUTE ${txnId}*`
+    `Problems? Reply:\n` +
+    `\`DISPUTE ${txnId}\``
   );
 
   await sendMessage(phone,
