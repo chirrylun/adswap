@@ -289,6 +289,79 @@ function screenshotGuide(type: string): string {
   }
 }
 
+function buildAdminAlert(
+  listingId:   string,
+  phone:       string,
+  data:        Record<string, any>,
+  extra:       Record<string, any>,
+  screenshots: number
+): string {
+  const typeLabel = TYPE_LABELS[data.type] ?? data.type;
+  const { fee }   = calcFee(data.price);
+
+  let details = '';
+  switch (data.type) {
+    case 'google_ad_account':
+      details = [
+        extra.googleAdsAccountAge && `📅 Age: ${extra.googleAdsAccountAge}`,
+        extra.googleAdsSpend      && `💸 Spend: ${extra.googleAdsSpend}`,
+        extra.googleAdsCurrency   && `💱 Currency: ${extra.googleAdsCurrency}`,
+        extra.googleAdsNiche      && `🏷️ Niche: ${extra.googleAdsNiche}`,
+        `⚠️ Suspended: ${extra.googleAdsSuspended ? 'Yes' : 'No'}`,
+      ].filter(Boolean).join('\n');
+      break;
+
+    case 'facebook_ad_account':
+      details = [
+        extra.metaAccountAge      && `📅 Age: ${extra.metaAccountAge}`,
+        extra.metaSpendLimit      && `💳 Limit: ${extra.metaSpendLimit}`,
+        `🏢 BM: ${extra.metaBusinessManager ? 'Yes' : 'No'}`,
+        `📊 Pixel: ${extra.metaPixelAttached ? 'Yes' : 'No'}`,
+        `⚠️ Restricted: ${extra.metaRestricted ? 'Yes' : 'No'}`,
+      ].filter(Boolean).join('\n');
+      break;
+
+    case 'adsense_site':
+      details = [
+        extra.adsenseAge             && `📅 Age: ${extra.adsenseAge}`,
+        extra.adsenseMonthlyEarnings && `💰 Earnings: $${extra.adsenseMonthlyEarnings}/mo`,
+        extra.adsensePaymentStatus   && `💵 Payment: ${extra.adsensePaymentStatus}`,
+        extra.adsenseSiteUrl         && `🌐 Site: ${extra.adsenseSiteUrl}`,
+        `⚠️ Violations: ${extra.adsenseViolations ? 'Yes' : 'No'}`,
+      ].filter(Boolean).join('\n');
+      break;
+
+    case 'play_console':
+      details = [
+        extra.playConsoleAge     && `📅 Age: ${extra.playConsoleAge}`,
+        extra.playConsoleApps    && `📱 Apps: ${extra.playConsoleApps}`,
+        extra.playConsoleRevenue && `💵 Revenue: $${extra.playConsoleRevenue}/mo`,
+        `⚠️ Suspended: ${extra.playConsoleSuspended ? 'Yes' : 'No'}`,
+      ].filter(Boolean).join('\n');
+      break;
+
+    case 'gift_card':
+      details = [
+        extra.giftCardBrand    && `🎁 Brand: ${extra.giftCardBrand}`,
+        extra.giftCardValue    && `💵 Value: ${extra.giftCardValue}`,
+        extra.giftCardCurrency && `🌍 Region: ${extra.giftCardCurrency}`,
+      ].filter(Boolean).join('\n');
+      break;
+  }
+
+  return (
+    `🔔 *New Listing — Review Required*\n\n` +
+    `🆔 ${listingId}\n` +
+    `📦 ${typeLabel}\n` +
+    `💰 ₦${Number(data.price).toLocaleString()} _(fee: ₦${fee.toLocaleString()})_\n` +
+    `📱 Seller: ${phone}\n` +
+    `📸 Screenshots: ${screenshots}\n\n` +
+    `${details}\n\n` +
+    `─────────────────\n` +
+    `Approve or reject on the dashboard.`
+  );
+}
+
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function handleSell(
   phone:    string,
@@ -447,6 +520,11 @@ export async function handleSell(
           expiresAt,
           ...extraFields,
         });
+
+        await sendMessage(
+  process.env.SUPPORT_PHONE!,
+  buildAdminAlert(listingId, phone, data, extraFields, screenshots.length)
+).catch(err => console.error('[SELL] Admin notify error:', err));
 
         await clearSession(phone);
 

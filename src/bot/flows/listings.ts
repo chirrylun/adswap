@@ -21,20 +21,20 @@ function formatListingSnippet(l: any): string {
       ].filter(Boolean).join('  ');
 
     case 'adsense_site':
-  return [
-    l.adsenseAge             && `📅 ${l.adsenseAge}`,
-    l.adsenseMonthlyEarnings && `💰 $${l.adsenseMonthlyEarnings}/mo`,
-    l.adsenseSiteUrl         && `🌐 ${l.adsenseSiteUrl}`,
-    l.adsenseViolations      ? '⚠️ Violations' : '✅ Clean',
-  ].filter(Boolean).join('  ');
+      return [
+        l.adsenseAge             && `📅 ${l.adsenseAge}`,
+        l.adsenseMonthlyEarnings && `💰 $${l.adsenseMonthlyEarnings}/mo`,
+        l.adsenseSiteUrl         && `🌐 ${l.adsenseSiteUrl}`,
+        l.adsenseViolations      ? '⚠️ Violations' : '✅ Clean',
+      ].filter(Boolean).join('  ');
 
-case 'play_console':
-  return [
-    l.playConsoleAge     && `📅 ${l.playConsoleAge}`,
-    l.playConsoleApps    && `📱 ${l.playConsoleApps}`,
-    l.playConsoleRevenue && `💵 $${l.playConsoleRevenue}/mo`,
-    l.playConsoleSuspended ? '⚠️ Suspended' : '✅ Clean',
-  ].filter(Boolean).join('  ');
+    case 'play_console':
+      return [
+        l.playConsoleAge     && `📅 ${l.playConsoleAge}`,
+        l.playConsoleApps    && `📱 ${l.playConsoleApps}`,
+        l.playConsoleRevenue && `💵 $${l.playConsoleRevenue}/mo`,
+        l.playConsoleSuspended ? '⚠️ Suspended' : '✅ Clean',
+      ].filter(Boolean).join('  ');
 
     case 'gift_card':
       return [
@@ -52,45 +52,45 @@ function formatFullDetails(l: any): string {
   switch (l.type) {
     case 'google_ad_account':
       return [
-        l.googleAdsAccountAge && `📅 Age: ${l.googleAdsAccountAge}`,
-        l.googleAdsSpend      && `💸 Total Spend: ${l.googleAdsSpend}`,
-        l.googleAdsCurrency   && `💱 Currency: ${l.googleAdsCurrency}`,
-        l.googleAdsNiche      && `🏷️ Niche: ${l.googleAdsNiche}`,
-        `⚠️ Suspended: ${l.googleAdsSuspended ? 'Yes' : 'No'}`,
-      ].filter(Boolean).join('\n');
+        `  📅  Age              ${l.googleAdsAccountAge ?? '—'}`,
+        `  💸  Total Spend      ${l.googleAdsSpend ?? '—'}`,
+        `  💱  Currency         ${l.googleAdsCurrency ?? '—'}`,
+        `  🏷️  Niche            ${l.googleAdsNiche ?? '—'}`,
+        `  🔒  Status           ${l.googleAdsSuspended ? '⚠️ Was suspended' : '✅ Clean'}`,
+      ].join('\n');
 
     case 'facebook_ad_account':
       return [
-        l.metaAccountAge      && `📅 Age: ${l.metaAccountAge}`,
-        l.metaSpendLimit      && `💳 Spend Limit: ${l.metaSpendLimit}`,
-        `🏢 Business Manager: ${l.metaBusinessManager ? 'Yes' : 'No'}`,
-        `📊 Pixel Attached: ${l.metaPixelAttached ? 'Yes' : 'No'}`,
-        `⚠️ Restricted: ${l.metaRestricted ? 'Yes' : 'No'}`,
-      ].filter(Boolean).join('\n');
+        `  📅  Age              ${l.metaAccountAge ?? '—'}`,
+        `  💳  Spend Limit      ${l.metaSpendLimit ?? '—'}`,
+        `  🏢  Business Mgr     ${l.metaBusinessManager ? 'Yes' : 'No'}`,
+        `  📊  Pixel            ${l.metaPixelAttached ? 'Attached ✓' : 'Not attached'}`,
+        `  🔒  Status           ${l.metaRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
+      ].join('\n');
 
     case 'adsense_site':
-  return [
-    l.adsenseAge             && `📅 Age: ${l.adsenseAge}`,
-    l.adsenseMonthlyEarnings && `💰 Monthly Earnings: $${l.adsenseMonthlyEarnings}`,
-    l.adsensePaymentStatus   && `💵 Payment Status: ${l.adsensePaymentStatus}`,
-    l.adsenseSiteUrl         && `🌐 Site: ${l.adsenseSiteUrl}`,
-    `⚠️ Violations: ${l.adsenseViolations ? 'Yes' : 'No'}`,
-  ].filter(Boolean).join('\n');
+      return [
+        `  📅  Age              ${l.adsenseAge ?? '—'}`,
+        `  💰  Monthly Earn     ${l.adsenseMonthlyEarnings ? `$${l.adsenseMonthlyEarnings}/mo` : '—'}`,
+        `  💵  Payment Hist.    ${l.adsensePaymentStatus === 'received' ? '✅ Received' : l.adsensePaymentStatus === 'threshold' ? '⏳ At threshold' : 'None yet'}`,
+        `  🌐  Site             ${l.adsenseSiteUrl ?? 'Not included'}`,
+        `  🔒  Status           ${l.adsenseViolations ? '⚠️ Has violations' : '✅ Clean'}`,
+      ].join('\n');
 
-case 'play_console':
-  return [
-    l.playConsoleAge     && `📅 Age: ${l.playConsoleAge}`,
-    l.playConsoleApps    && `📱 Apps: ${l.playConsoleApps}`,
-    l.playConsoleRevenue && `💵 Monthly Revenue: $${l.playConsoleRevenue}`,
-    `⚠️ Suspended: ${l.playConsoleSuspended ? 'Yes' : 'No'}`,
-  ].filter(Boolean).join('\n');
-  
+    case 'play_console':
+      return [
+        `  📅  Age              ${l.playConsoleAge ?? '—'}`,
+        `  📱  Published Apps   ${l.playConsoleApps ?? '—'}`,
+        `  💵  Monthly Rev.     ${l.playConsoleRevenue ? `$${l.playConsoleRevenue}/mo` : '—'}`,
+        `  🔒  Status           ${l.playConsoleSuspended ? '⚠️ Had issues' : '✅ Clean'}`,
+      ].join('\n');
+
     case 'gift_card':
       return [
-        l.giftCardBrand    && `🎁 Brand: ${l.giftCardBrand}`,
-        l.giftCardValue    && `💵 Value: ${l.giftCardValue}`,
-        l.giftCardCurrency && `🌍 Region: ${l.giftCardCurrency}`,
-      ].filter(Boolean).join('\n');
+        `  🎁  Brand            ${l.giftCardBrand ?? '—'}`,
+        `  💵  Face Value       ${l.giftCardValue ?? '—'}`,
+        `  🌍  Region           ${l.giftCardCurrency ?? '—'}`,
+      ].join('\n');
 
     default:
       return '';
@@ -119,21 +119,33 @@ export async function handleListings(
     await listing.save();
 
     const ratingStr = listing.seller.totalSales > 0
-      ? `⭐ ${listing.seller.sellerRating.toFixed(1)} (${listing.seller.totalSales} sales)`
+      ? `⭐ ${listing.seller.sellerRating.toFixed(1)} · ${listing.seller.totalSales} sale${listing.seller.totalSales !== 1 ? 's' : ''}`
       : '🆕 New seller';
 
     const details = formatFullDetails(listing);
+    const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
 
     return sendMessage(phone,
-      `${listing.isFeatured ? '⭐ *FEATURED* — ' : ''}*${TYPE_LABELS[listing.type]}*\n` +
-      `🆔 ${listing.listingId}\n\n` +
-      (details ? `${details}\n\n` : '') +
-      `💰 Price: *₦${listing.price.toLocaleString()}*\n` +
-      `👤 Seller: ${ratingStr}\n` +
-      `👁 ${listing.viewCount} view${listing.viewCount !== 1 ? 's' : ''}\n\n` +
-      (listing.description ? `📝 ${listing.description}\n\n` : '') +
-      `─────────────────\n` +
-      `To buy with escrow protection, copy and send:\n\n` +
+      `${listing.isFeatured ? '⭐ *FEATURED*\n' : ''}` +
+      `*${typeLabel}*\n` +
+      `_${listingId}_\n` +
+      `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
+
+      `*Account Details*\n` +
+      `${details}\n\n` +
+
+      (listing.description
+        ? `*About this listing*\n  ${listing.description}\n\n`
+        : '') +
+
+      `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
+      `  💰  Price            *₦${listing.price.toLocaleString()}*\n` +
+      `  👤  Seller           ${ratingStr}\n` +
+      `  👁  Views            ${listing.viewCount}\n` +
+      `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
+
+      `🔒 *Escrow protected — your money is safe*\n\n` +
+      `To purchase, copy and send:\n` +
       `\`BUY ${listing.listingId}\`\n\n` +
       `Type *LISTINGS* to see more.`
     );
@@ -147,26 +159,26 @@ export async function handleListings(
 
   if (!listings.length) {
     return sendMessage(phone,
-      `📭 No active listings right now.\n\n` +
+      `📭 *No active listings right now.*\n\n` +
       `Check back later or type *SELL* to list your own account.`
     );
   }
 
-  // Use sendList for the browse view — rows show the snippet as description
   const rows = listings.map(l => ({
     id:          `VIEW ${l.listingId}`,
     title:       `${TYPE_LABELS[l.type] ?? l.type}${l.isFeatured ? ' ⭐' : ''} — ₦${l.price.toLocaleString()}`,
-    description: formatListingSnippet(l).slice(0, 72), // WhatsApp row description limit
+    description: formatListingSnippet(l).slice(0, 72),
   }));
 
   return sendList(
     phone,
-    `*Verified Listings* 📋\n\n` +
-    `${listings.length} account${listings.length > 1 ? 's' : ''} available.\n` +
-    `Tap a listing to view full details and buy:`,
-    'View Listings',
+    `*AdSwap Verified Listings* 📋\n\n` +
+    `${listings.length} account${listings.length > 1 ? 's' : ''} available right now.\n\n` +
+    `All listings are manually reviewed before going live.\n` +
+    `Tap any listing to view full details:`,
+    'Browse Listings',
     [{ title: 'Available Now', rows }],
     undefined,
-    'All listings are manually verified before going live.'
+    '🔒 Every transaction is escrow-protected.'
   );
 }
