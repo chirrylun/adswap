@@ -1,69 +1,129 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type ListingType =
-  | 'verified_adsense'
-  | 'payment_received_adsense'
-  | 'website_bundle'
-  | 'youtube_channel';
+  | 'google_ad_account'
+  | 'facebook_ad_account'
+  | 'adsense_site'
+  | 'play_console'
+  | 'gift_card';
 
 export type ListingStatus =
   | 'pending_verification'
-  | 'pending_payment'
   | 'active'
   | 'sold'
   | 'expired'
   | 'rejected';
 
 export interface IListing extends Document {
-  listingId:         string;
-  seller:            mongoose.Types.ObjectId;
-  type:              ListingType;
-  price:             number;
-  description:       string;
-  niche?:            string;
-  accountAge?:       string;
-  paymentsReceived?: number;
-  totalEarned?:      number;
-  trafficMonthly?:   number;
-  screenshotUrls:    string[];
-  status:            ListingStatus;
-  isFeatured:        boolean;
-  listingFee:        number;
-  feePaid:           boolean;
-  feePaidAt?:        Date;
-  rejectionReason?:  string;
-  viewCount:         number;
-  expiresAt:         Date;
-  createdAt:         Date;
-  updatedAt:         Date;
+  listingId:        string;
+  seller:           mongoose.Types.ObjectId;
+  type:             ListingType;
+  price:            number;
+  description:      string;
+  niche?:           string;
+
+  // ── Google Ads specific ────────────────────────────────────────────────────
+  googleAdsSpend?:       string; // lifetime or monthly spend
+  googleAdsCurrency?:    string; // account currency
+  googleAdsAccountAge?:  string;
+  googleAdsNiche?:       string;
+  googleAdsSuspended?:   boolean;
+
+  // ── Facebook Ads specific ──────────────────────────────────────────────────
+  metaSpendLimit?:       string; // current spend limit
+  metaAccountAge?:       string;
+  metaPixelAttached?:    boolean;
+  metaRestricted?:       boolean;
+  metaBusinessManager?:  boolean; // is it a BM account
+
+  // ── AdSense site specific ──────────────────────────────────────────────────
+  adsenseMonthlyEarnings?: string;
+  adsensePaymentStatus?:   string; // 'received' | 'threshold' | 'none'
+  adsenseSiteUrl?:         string;
+  adsenseNiche?:           string;
+  adsenseAge?:             string;
+  adsenseViolations?:      boolean;
+
+  // ── Play Console specific ──────────────────────────────────────────────────
+  playConsoleApps?:        string; // number of apps
+  playConsoleRevenue?:     string; // monthly revenue
+  playConsoleSuspended?:   boolean;
+  playConsoleAge?:         string;
+
+  // ── Gift Card specific ─────────────────────────────────────────────────────
+  giftCardBrand?:    string; // Amazon, iTunes, Steam, etc.
+  giftCardValue?:    string; // face value e.g. "$100"
+  giftCardCurrency?: string;
+  giftCardCode?:     string; // revealed only after confirmed purchase
+
+  screenshotUrls:   string[];
+  status:           ListingStatus;
+  isFeatured:       boolean;
+  rejectionReason?: string;
+  viewCount:        number;
+  expiresAt:        Date;
+  createdAt:        Date;
+  updatedAt:        Date;
 }
 
 const ListingSchema = new Schema<IListing>(
   {
-    listingId:         { type: String, required: true, unique: true, index: true },
-    seller:            { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    type:              { type: String, required: true, enum: ['verified_adsense','payment_received_adsense','website_bundle','youtube_channel'] },
-    price:             { type: Number, required: true, min: 10000 },
-    description:       { type: String, required: true, maxlength: 500 },
-    niche:             { type: String, maxlength: 100 },
-    accountAge:        { type: String },
-    paymentsReceived:  { type: Number },
-    totalEarned:       { type: Number },
-    trafficMonthly:    { type: Number },
-    screenshotUrls:    [{ type: String }],
-    status:            { type: String, default: 'pending_verification', index: true },
-    isFeatured:        { type: Boolean, default: false },
-    listingFee:        { type: Number, required: true },
-    feePaid:           { type: Boolean, default: false },
-    feePaidAt:         { type: Date },
-    rejectionReason:   { type: String },
-    viewCount:         { type: Number, default: 0 },
-    expiresAt:         { type: Date, required: true },
+    listingId:  { type: String, required: true, unique: true, index: true },
+    seller:     { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    type:       {
+      type:     String,
+      required: true,
+      enum:     ['google_ad_account','facebook_ad_account','adsense_site','play_console','gift_card'],
+    },
+    price:       { type: Number, required: true, min: 1000 },
+    description: { type: String, required: true, maxlength: 600 },
+    niche:       { type: String, maxlength: 100 },
+
+    // Google Ads
+    googleAdsSpend:      { type: String },
+    googleAdsCurrency:   { type: String },
+    googleAdsAccountAge: { type: String },
+    googleAdsNiche:      { type: String },
+    googleAdsSuspended:  { type: Boolean },
+
+    // Facebook Ads
+    metaSpendLimit:      { type: String },
+    metaAccountAge:      { type: String },
+    metaPixelAttached:   { type: Boolean },
+    metaRestricted:      { type: Boolean },
+    metaBusinessManager: { type: Boolean },
+
+    // AdSense
+    adsenseMonthlyEarnings: { type: String },
+    adsensePaymentStatus:   { type: String },
+    adsenseSiteUrl:         { type: String },
+    adsenseNiche:           { type: String },
+    adsenseAge:             { type: String },
+    adsenseViolations:      { type: Boolean },
+
+    // Play Console
+    playConsoleApps:      { type: String },
+    playConsoleRevenue:   { type: String },
+    playConsoleSuspended: { type: Boolean },
+    playConsoleAge:       { type: String },
+
+    // Gift Card
+    giftCardBrand:    { type: String },
+    giftCardValue:    { type: String },
+    giftCardCurrency: { type: String },
+    giftCardCode:     { type: String },  // stored encrypted, revealed post-purchase
+
+    screenshotUrls:  [{ type: String }],
+    status:          { type: String, default: 'pending_verification', index: true },
+    isFeatured:      { type: Boolean, default: false },
+    rejectionReason: { type: String },
+    viewCount:       { type: Number, default: 0 },
+    expiresAt:       { type: Date, required: true },
   },
   { timestamps: true }
 );
 
-// Auto-expire listings
+// TTL index — MongoDB auto-deletes expired listings
 ListingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.model<IListing>('Listing', ListingSchema);
