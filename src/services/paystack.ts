@@ -229,25 +229,18 @@ async function processListingFee(metadata: any): Promise<void> {
 
   if (!listing) return;
 
-  listing.feePaid   = true;
-  listing.feePaidAt = new Date();
-
   // Only go live if already verified by admin
-  if (listing.status === 'pending_payment') {
+  if (listing.status === 'pending_verification') {
     listing.status = 'active';
+    await listing.save();
+
+    await sendMessage(listing.seller.phone,
+      `✅ *Listing fee received!*\n\n` +
+      `Listing: ${listing.listingId}\n\n` +
+      `🟢 Your listing is now *LIVE* and visible to buyers!\n\n` +
+      `Type *LISTINGS* to see it.`
+    );
   }
-
-  await listing.save();
-
-  await sendMessage(listing.seller.phone,
-    `✅ *Listing fee received!*\n\n` +
-    `Listing: ${listing.listingId}\n\n` +
-    `${listing.status === 'active'
-      ? '🟢 Your listing is now *LIVE* and visible to buyers!'
-      : '⏳ Pending admin verification. Goes live within 24 hours.'
-    }\n\n` +
-    `Type *LISTINGS* to see it.`
-  );
 }
 
 // ─── Get list of banks ────────────────────────────────────────────────────────
