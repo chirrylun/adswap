@@ -87,7 +87,7 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-app.options('*', cors({
+app.options('/{*path}', cors({
   origin: [
     process.env.APP_URL!,
     process.env.ADMIN_URL!,
