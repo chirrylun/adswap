@@ -87,16 +87,13 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-  listing.status = listing.feePaid ? 'active' : 'pending_payment';
+  listing.status = 'active';
   await listing.save();
 
   await sendMessage(listing.seller.phone,
     `✅ *Listing Verified!*\n\n` +
     `Listing: *${listing.listingId}*\n\n` +
-    `${listing.feePaid
-      ? '🟢 Your listing is now *LIVE* and visible to buyers!'
-      : `💳 Pay listing fee of ₦${listing.listingFee.toLocaleString()} to go live.\n\nType *SELL* to get a payment link.`
-    }`
+    `🟢 Your listing is now *LIVE* and visible to buyers!`
   );
 
   res.json({ success: true, status: listing.status });
