@@ -21,20 +21,20 @@ function formatListingSnippet(l: any): string {
       ].filter(Boolean).join('  ');
 
     case 'adsense_site':
-      return [
-        l.adsenseAge             && `📅 ${l.adsenseAge}`,
-        l.adsenseMonthlyEarnings && `💰 ${l.adsenseMonthlyEarnings}/mo`,
-        l.adsenseSiteUrl         && `🌐 ${l.adsenseSiteUrl}`,
-        l.adsenseViolations      ? '⚠️ Violations' : '✅ Clean',
-      ].filter(Boolean).join('  ');
+  return [
+    l.adsenseAge             && `📅 ${l.adsenseAge}`,
+    l.adsenseMonthlyEarnings && `💰 $${l.adsenseMonthlyEarnings}/mo`,
+    l.adsenseSiteUrl         && `🌐 ${l.adsenseSiteUrl}`,
+    l.adsenseViolations      ? '⚠️ Violations' : '✅ Clean',
+  ].filter(Boolean).join('  ');
 
-    case 'play_console':
-      return [
-        l.playConsoleAge     && `📅 ${l.playConsoleAge}`,
-        l.playConsoleApps    && `📱 ${l.playConsoleApps}`,
-        l.playConsoleRevenue && `💵 ${l.playConsoleRevenue}/mo`,
-        l.playConsoleSuspended ? '⚠️ Suspended' : '✅ Clean',
-      ].filter(Boolean).join('  ');
+case 'play_console':
+  return [
+    l.playConsoleAge     && `📅 ${l.playConsoleAge}`,
+    l.playConsoleApps    && `📱 ${l.playConsoleApps}`,
+    l.playConsoleRevenue && `💵 $${l.playConsoleRevenue}/mo`,
+    l.playConsoleSuspended ? '⚠️ Suspended' : '✅ Clean',
+  ].filter(Boolean).join('  ');
 
     case 'gift_card':
       return [
@@ -69,22 +69,22 @@ function formatFullDetails(l: any): string {
       ].filter(Boolean).join('\n');
 
     case 'adsense_site':
-      return [
-        l.adsenseAge             && `📅 Age: ${l.adsenseAge}`,
-        l.adsenseMonthlyEarnings && `💰 Monthly Earnings: ${l.adsenseMonthlyEarnings}`,
-        l.adsensePaymentStatus   && `💵 Payment Status: ${l.adsensePaymentStatus}`,
-        l.adsenseSiteUrl         && `🌐 Site: ${l.adsenseSiteUrl}`,
-        `⚠️ Violations: ${l.adsenseViolations ? 'Yes' : 'No'}`,
-      ].filter(Boolean).join('\n');
+  return [
+    l.adsenseAge             && `📅 Age: ${l.adsenseAge}`,
+    l.adsenseMonthlyEarnings && `💰 Monthly Earnings: $${l.adsenseMonthlyEarnings}`,
+    l.adsensePaymentStatus   && `💵 Payment Status: ${l.adsensePaymentStatus}`,
+    l.adsenseSiteUrl         && `🌐 Site: ${l.adsenseSiteUrl}`,
+    `⚠️ Violations: ${l.adsenseViolations ? 'Yes' : 'No'}`,
+  ].filter(Boolean).join('\n');
 
-    case 'play_console':
-      return [
-        l.playConsoleAge     && `📅 Age: ${l.playConsoleAge}`,
-        l.playConsoleApps    && `📱 Apps: ${l.playConsoleApps}`,
-        l.playConsoleRevenue && `💵 Monthly Revenue: ${l.playConsoleRevenue}`,
-        `⚠️ Suspended: ${l.playConsoleSuspended ? 'Yes' : 'No'}`,
-      ].filter(Boolean).join('\n');
-
+case 'play_console':
+  return [
+    l.playConsoleAge     && `📅 Age: ${l.playConsoleAge}`,
+    l.playConsoleApps    && `📱 Apps: ${l.playConsoleApps}`,
+    l.playConsoleRevenue && `💵 Monthly Revenue: $${l.playConsoleRevenue}`,
+    `⚠️ Suspended: ${l.playConsoleSuspended ? 'Yes' : 'No'}`,
+  ].filter(Boolean).join('\n');
+  
     case 'gift_card':
       return [
         l.giftCardBrand    && `🎁 Brand: ${l.giftCardBrand}`,

@@ -106,9 +106,11 @@ function getQuestions(type: string): Question[] {
           ],
         },
         {
-          step:   'sell_q_ads_earnings',
-          prompt: `*Step 3 of 5 — Monthly Earnings* 💰\n\nApproximate monthly earnings on this account?\n\nExamples: _$20/month_, _$200/month_, _$500+/month_\n\nType your answer:`,
-        },
+  step:   'sell_q_ads_earnings',
+  prompt: `*Step 3 of 5 — Monthly Earnings* 💰\n\nApproximate monthly earnings on this account?\n\nEnter numbers only — no symbols.\n` +
+          `Examples: _20_, _200_, _500_\n\n` +
+          `Type your answer:`,
+},
         {
           step:   'sell_q_ads_url',
           prompt: `*Step 4 of 5 — Website URL* 🌐\n\nWhat is the URL of the site attached to this AdSense account?\n\nExample: _myblog.com_\n\nType your answer (or type *NONE* if no site):`,
@@ -135,9 +137,11 @@ function getQuestions(type: string): Question[] {
           prompt: `*Step 2 of 4 — Published Apps* 📱\n\nHow many apps are published on this account? What are their names?\n\nExamples: _2 apps — CleanMaster, VPN Pro_\n\nType your answer:`,
         },
         {
-          step:   'sell_q_play_revenue',
-          prompt: `*Step 3 of 4 — Monthly Revenue* 💵\n\nApproximate monthly revenue from all apps combined?\n\nExamples: _$50/month_, _$500/month_, _No revenue yet_\n\nType your answer:`,
-        },
+  step:   'sell_q_play_revenue',
+  prompt: `*Step 3 of 4 — Monthly Revenue* 💵\n\nApproximate monthly revenue from all apps combined?\n\nEnter numbers only or type *NONE* if no revenue.\n` +
+          `Examples: _50_, _500_\n\n` +
+          `Type your answer:`,
+},
         {
           step:    'sell_q_play_suspended',
           prompt:  `*Step 4 of 4 — Account Status* ⚠️\n\nHas this Play Console account ever been suspended or had apps removed?`,
@@ -194,21 +198,21 @@ function buildDescription(type: string, data: Record<string, any>): string {
       ].join(' | ');
 
     case 'adsense_site':
-      return [
-        `Age: ${data.sell_q_ads_age}`,
-        `Payment: ${data.sell_q_ads_payment === 'ADS_PAY_YES' ? 'Received' : data.sell_q_ads_payment === 'ADS_PAY_THRESH' ? 'At threshold' : 'None yet'}`,
-        `Monthly earnings: ${data.sell_q_ads_earnings}`,
-        `Site: ${data.sell_q_ads_url?.toUpperCase() === 'NONE' ? 'Not included' : data.sell_q_ads_url}`,
-        `Violations: ${yesNo(data.sell_q_ads_violations, 'ADS_VIO_YES')}`,
-      ].join(' | ');
+  return [
+    `Age: ${data.sell_q_ads_age}`,
+    `Payment: ${data.sell_q_ads_payment === 'ADS_PAY_YES' ? 'Received' : data.sell_q_ads_payment === 'ADS_PAY_THRESH' ? 'At threshold' : 'None yet'}`,
+    `Monthly earnings: $${data.sell_q_ads_earnings}/mo`,
+    `Site: ${data.sell_q_ads_url?.toUpperCase() === 'NONE' ? 'Not included' : data.sell_q_ads_url}`,
+    `Violations: ${yesNo(data.sell_q_ads_violations, 'ADS_VIO_YES')}`,
+  ].join(' | ');
 
-    case 'play_console':
-      return [
-        `Age: ${data.sell_q_play_age}`,
-        `Apps: ${data.sell_q_play_apps}`,
-        `Monthly revenue: ${data.sell_q_play_revenue}`,
-        `Suspended: ${yesNo(data.sell_q_play_suspended, 'PLAY_SUSP_YES')}`,
-      ].join(' | ');
+case 'play_console':
+  return [
+    `Age: ${data.sell_q_play_age}`,
+    `Apps: ${data.sell_q_play_apps}`,
+    `Monthly revenue: ${data.sell_q_play_revenue?.toUpperCase() === 'NONE' ? 'No revenue' : `$${data.sell_q_play_revenue}/mo`}`,
+    `Suspended: ${yesNo(data.sell_q_play_suspended, 'PLAY_SUSP_YES')}`,
+  ].join(' | ');
 
     case 'gift_card':
       return [
