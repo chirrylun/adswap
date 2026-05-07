@@ -1,15 +1,17 @@
 export const LISTING_FEES: Record<string, number> = {
-  verified_adsense:          3000,
-  payment_received_adsense:  5000,
-  website_bundle:            8000,
-  youtube_channel:           5000,
+  google_ad_account:   1500,  // competitive, high volume listing type
+  facebook_ad_account: 1500,
+  adsense_site:        2000,  // slightly higher, more complex to verify
+  play_console:        2000,
+  gift_card:           500,   // low barrier, low-effort listing
 };
 
 export const FEE_TIERS = [
-  { max: 50_000,     rate: 0.10 }, // 10% for listings up to ₦50k
-  { max: 200_000,    rate: 0.08 }, // 8%  for ₦50k–₦200k
-  { max: 500_000,    rate: 0.06 }, // 6%  for ₦200k–₦500k
-  { max: Infinity,   rate: 0.05 }, // 5%  for ₦500k+
+  { max: 30_000,     rate: 0.08 }, // 8%  — gift cards, low-value accounts
+  { max: 100_000,    rate: 0.07 }, // 7%  — mid-low, most common range
+  { max: 300_000,    rate: 0.06 }, // 6%  — mid-high accounts
+  { max: 700_000,    rate: 0.05 }, // 5%  — premium listings
+  { max: Infinity,   rate: 0.04 }, // 4%  — high-value, retain big sellers
 ];
 
 export const LISTING_EXPIRY_DAYS    = 30;
