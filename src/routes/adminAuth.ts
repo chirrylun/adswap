@@ -67,12 +67,12 @@ router.post('/signin', loginLimiter, async (req: Request, res: Response) => {
     admin.lastLoginAt = new Date();
     await admin.save();
 
-    res.cookie('admin_token', token, {
-      httpOnly: true,
-      secure:   process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge:   8 * 60 * 60 * 1000,
-    });
+   res.cookie('admin_token', token, {
+  httpOnly: true,
+  secure:   true,
+  sameSite: 'none',
+  maxAge:   8 * 60 * 60 * 1000,
+});
 
     res.json({
       admin: {
@@ -90,7 +90,11 @@ router.post('/signin', loginLimiter, async (req: Request, res: Response) => {
 
 // POST /admin/signout
 router.post('/signout', (_req: Request, res: Response) => {
-  res.clearCookie('admin_token');
+  res.clearCookie('admin_token', {
+    httpOnly: true,
+    secure:   true,
+    sameSite: 'none',
+  });
   res.json({ success: true });
 });
 
