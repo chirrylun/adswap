@@ -98,6 +98,16 @@ app.use('/webhook', webhookRouter);
 app.use('/admin',   adminAuthRouter);
 app.use('/admin',   adminRouter);
 
+app.get('/payment/done', (_req: Request, res: Response) => {
+  res.send(`
+    <html><body style="font-family:sans-serif;text-align:center;padding:60px">
+      <h2>✅ Payment received</h2>
+      <p>Your funds are held in escrow.</p>
+      <p>Check your WhatsApp for next steps.</p>
+    </body></html>
+  `);
+});
+
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Not found' });
