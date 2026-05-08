@@ -48,10 +48,7 @@ app.use('/webhook/whatsapp', express.raw({
   limit: '1mb',
 }));
 
-app.use('/webhook/paystack', express.raw({
-  type:  'application/json',
-  limit: '1mb',
-}));
+app.use('/webhook/flutterwave', express.raw({ type: 'application/json', limit: '1mb' }));
 
 // Parse raw buffer back to object for handler use
 app.use('/webhook', (req: Request, res, next) => {

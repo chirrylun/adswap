@@ -39,7 +39,7 @@ export async function createEscrowPaymentLink(
     tx_ref:       txRef,
     amount,
     currency:     'NGN',
-    redirect_url: `${process.env.APP_URL}/payment/callback`,
+    
     customer:     { email: sellerEmail, name: 'AdSwap Buyer' },
     customizations: {
       title:       'AdSwap Escrow',
