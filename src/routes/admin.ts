@@ -283,6 +283,29 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
   res.json({ success: true, status: dispute.status });
 });
 
+router.get('/users', adminAuth, async (req: AdminRequest, res: Response) => {
+  const { page = 1, limit = 20, search } = req.query;
+
+  const filter: any = {};
+  if (search) {
+    filter.$or = [
+      { phone: { $regex: search, $options: 'i' } },
+      { name:  { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  const [users, total] = await Promise.all([
+    User.find(filter)
+      .select('phone name isBanned banReason sellerRating totalSales totalPurchases lastActiveAt joinedAt notifications isVerified')
+      .sort({ lastActiveAt: -1 })
+      .skip((+page - 1) * +limit)
+      .limit(+limit),
+    User.countDocuments(filter),
+  ]);
+
+  res.json({ users, total, page: +page, pages: Math.ceil(total / +limit) });
+});
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 router.post('/users/:phone/ban', adminAuth, async (req: AdminRequest, res: Response) => {
   const { reason } = req.body;
