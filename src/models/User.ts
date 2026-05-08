@@ -3,9 +3,10 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IUser extends Document {
   phone:            string;
   name?:            string;
-  bankName?:        string;
-  bankAccount?:     string;
-  bankCode?:        string;
+  bankAccountName?:   string;
+bankAccountNumber?: string;
+bankCode?:          string;
+bankName?:          string;
   paystackRecipientCode?: string;
   sellerRating:     number;
   totalRatings:     number;
@@ -22,7 +23,7 @@ const UserSchema = new Schema<IUser>({
   phone:            { type: String, required: true, unique: true, index: true },
   name:             { type: String, trim: true },
   bankName:         { type: String },
-  bankAccount:      { type: String },
+  bankAccountNumber:      { type: String },
   bankCode:         { type: String },
   paystackRecipientCode: { type: String },
   sellerRating:     { type: Number, default: 0, min: 0, max: 5 },

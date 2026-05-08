@@ -4,6 +4,7 @@ import jwt    from 'jsonwebtoken';
 import { adminAuth, AdminRequest } from '../middleware/auth';
 import { adminLimiter, loginLimiter } from '../middleware/rateLimiter';
 import { sendMessage } from '../services/whatsapp';
+import { createEscrowPaymentLink, transferToSeller } from '../services/flutterwave';
 import Listing     from '../models/Listing';
 import Transaction from '../models/Transaction';
 import Dispute     from '../models/Dispute';
@@ -22,12 +23,13 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
     const valid = await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH!);
     if (!valid) return res.status(401).json({ error: 'Invalid password' });
 
-    const token = jwt.sign({ admin: true, iat: Date.now() }, process.env.JWT_SECRET!, {
-      expiresIn: '8h',
-    });
-
+    const token = jwt.sign(
+      { admin: true, iat: Date.now() },
+      process.env.JWT_SECRET!,
+      { expiresIn: '8h' },
+    );
     res.json({ token });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -35,14 +37,9 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 // ── Dashboard stats ───────────────────────────────────────────────────────────
 router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
   const [
-    totalUsers,
-    totalListings,
-    activeListings,
-    pendingVerification,
-    totalTransactions,
-    completedTransactions,
-    openDisputes,
-    revenue,
+    totalUsers, totalListings, activeListings, pendingVerification,
+    totalTransactions, completedTransactions, openDisputes,
+    pendingReleases, revenue,
   ] = await Promise.all([
     User.countDocuments(),
     Listing.countDocuments(),
@@ -51,6 +48,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
     Transaction.countDocuments(),
     Transaction.countDocuments({ status: 'completed' }),
     Dispute.countDocuments({ status: 'open' }),
+    Transaction.countDocuments({ status: 'pending_release' }),
     Transaction.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$platformFee' } } },
@@ -60,7 +58,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
   res.json({
     users:        { total: totalUsers },
     listings:     { total: totalListings, active: activeListings, pendingVerification },
-    transactions: { total: totalTransactions, completed: completedTransactions },
+    transactions: { total: totalTransactions, completed: completedTransactions, pendingRelease: pendingReleases },
     disputes:     { open: openDisputes },
     revenue:      { total: revenue[0]?.total || 0 },
   });
@@ -81,26 +79,43 @@ router.get('/listings', adminAuth, async (req: AdminRequest, res: Response) => {
   res.json({ listings, total, page: +page, pages: Math.ceil(total / +limit) });
 });
 
+// When a listing is approved, generate a Flutterwave payment link and store it.
+// Buyers will use this link when they trigger BUY.
 router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: Response) => {
   const listing = await Listing.findById(req.params.id)
     .populate<{ seller: any }>('seller');
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-  listing.status = 'active';
+  // Generate FW escrow payment link
+  let paymentLink = '';
+  try {
+    paymentLink = await createEscrowPaymentLink(
+      listing.listingId,
+      listing.price,
+      listing.seller.email ?? `${listing.seller.phone}@adswap.ng`,
+    );
+  } catch (err: any) {
+    console.error('[Admin] FW link generation failed:', err.message);
+    return res.status(502).json({ error: 'Could not generate payment link', detail: err.message });
+  }
+
+  listing.status      = 'active';
+  listing.paymentLink = paymentLink;
   await listing.save();
 
   await sendMessage(listing.seller.phone,
     `✅ *Listing Verified!*\n\n` +
     `Listing: *${listing.listingId}*\n\n` +
-    `🟢 Your listing is now *LIVE* and visible to buyers!`
-  );
+    `🟢 Your listing is now *LIVE* and visible to buyers!`,
+  ).catch(() => {});
 
-  res.json({ success: true, status: listing.status });
+  res.json({ success: true, status: listing.status, paymentLink });
 });
 
 router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Response) => {
   const { reason } = req.body;
+
   const listing = await Listing.findById(req.params.id)
     .populate<{ seller: any }>('seller');
 
@@ -115,16 +130,58 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
     `Listing: ${listing.listingId}\n` +
     `Reason: ${listing.rejectionReason}\n\n` +
     `Please resubmit with clearer screenshots.\n` +
-    `Type *SELL* to start a new listing.`
-  );
+    `Type *SELL* to start a new listing.`,
+  ).catch(() => {});
 
   res.json({ success: true });
+});
+
+// ── Payout release ────────────────────────────────────────────────────────────
+// Called manually from dashboard or via WhatsApp PAYOUT command.
+router.post('/transactions/:id/release', adminAuth, async (req: AdminRequest, res: Response) => {
+  const txn = await Transaction.findOne({
+    $or: [{ _id: req.params.id }, { transactionId: req.params.id }],
+    status: 'pending_release',
+  }).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
+
+  if (!txn) return res.status(404).json({ error: 'Transaction not found or not ready for release' });
+
+  try {
+    await transferToSeller(txn as any);
+
+    txn.status      = 'completed';
+    txn.completedAt = new Date();
+    await txn.save();
+
+    await sendMessage(txn.seller.phone,
+      `💸 *Payment Sent!*\n\n` +
+      `Transaction: ${txn.transactionId}\n` +
+      `Amount: ₦${txn.sellerReceives?.toLocaleString()}\n` +
+      `Bank: ${txn.seller.bankName} — ${txn.seller.bankAccountNumber}\n\n` +
+      `Transfer is on its way. Check your account shortly.`,
+    ).catch(() => {});
+
+    res.json({ success: true, transactionId: txn.transactionId });
+  } catch (err: any) {
+    console.error('[Admin] Release failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pending release queue — for the dashboard payout list
+router.get('/transactions/pending-release', adminAuth, async (_req: AdminRequest, res: Response) => {
+  const txns = await Transaction.find({ status: 'pending_release' })
+    .populate('seller', 'phone bankName bankAccountNumber bankAccountName')
+    .populate('buyer',  'phone')
+    .sort({ releaseAt: 1 });
+
+  res.json({ transactions: txns });
 });
 
 // ── Disputes ──────────────────────────────────────────────────────────────────
 router.get('/disputes', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status } = req.query;
- const filter: any = status ? { status: status as string } : { status: 'open' };
+  const filter: any = status ? { status: status as string } : { status: 'open' };
 
   const disputes = await Dispute.find(filter)
     .populate('transaction')
@@ -135,10 +192,9 @@ router.get('/disputes', adminAuth, async (req: AdminRequest, res: Response) => {
 });
 
 router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: Response) => {
-  const { decision, resolution, adminNotes } = req.body;
-  // decision: 'buyer' | 'seller'
+  const { decision, resolution } = req.body;
 
-  if (!['buyer','seller'].includes(decision)) {
+  if (!['buyer', 'seller'].includes(decision)) {
     return res.status(400).json({ error: 'Decision must be buyer or seller' });
   }
 
@@ -149,66 +205,61 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
 
   const txn = dispute.transaction;
 
-  dispute.status      = decision === 'buyer' ? 'resolved_buyer' : 'resolved_seller';
-  dispute.resolution  = resolution;
-  dispute.adminNotes  = adminNotes;
-  dispute.resolvedAt  = new Date();
+  dispute.status     = decision === 'buyer' ? 'resolved_buyer' : 'resolved_seller';
+  dispute.resolution = resolution;
+  dispute.resolvedAt = new Date();
   await dispute.save();
 
   if (decision === 'buyer') {
-    // Refund buyer
-    txn.status      = 'refunded';
-    txn.refundedAt  = new Date();
-    txn.escrowHeld  = false;
+    // Refund buyer — mark for manual refund (FW refunds via dashboard or API)
+    txn.status     = 'refunded';
+    txn.refundedAt = new Date();
+    txn.escrowHeld = false;
     await txn.save();
+
+    await sendMessage(
+      process.env.SUPPORT_PHONE!,
+      `🔔 *Refund Required*\n\nTXN: ${txn.transactionId}\nAmount: ₦${txn.amount?.toLocaleString()}\nFW Ref: ${txn.flutterwaveRef}\n\nProcess refund via Flutterwave dashboard.`,
+    ).catch(() => {});
 
     const buyer = await User.findById(txn.buyer);
     if (buyer) {
       await sendMessage(buyer.phone,
         `✅ *Dispute Resolved in Your Favour*\n\n` +
         `Transaction: ${txn.transactionId}\n` +
-        `Decision: Full refund approved\n\n` +
-        `₦${txn.amount.toLocaleString()} will be returned within 3–5 business days.\n\n` +
-        `Resolution: ${resolution}`
-      );
+        `₦${txn.amount?.toLocaleString()} will be refunded within 3–5 business days.\n\n` +
+        `Resolution: ${resolution}`,
+      ).catch(() => {});
     }
 
     const seller = await User.findById(txn.seller);
     if (seller) {
       await sendMessage(seller.phone,
         `❌ *Dispute Resolved — Buyer Refunded*\n\n` +
-        `Transaction: ${txn.transactionId}\n\n` +
-        `Resolution: ${resolution}\n\n` +
-        `Contact support if you believe this is incorrect: ${process.env.SUPPORT_PHONE}`
-      );
+        `Transaction: ${txn.transactionId}\nResolution: ${resolution}\n\n` +
+        `Contact support if you believe this is incorrect: ${process.env.SUPPORT_PHONE}`,
+      ).catch(() => {});
     }
   } else {
     // Release to seller
-    const { releaseEscrow } = await import('../services/paystack');
-    await releaseEscrow(txn);
-
-    txn.status      = 'completed';
-    txn.completedAt = new Date();
+    txn.status    = 'pending_release';
+    txn.releaseAt = new Date();
     await txn.save();
+
+    // Re-use the release endpoint logic by notifying admin
+    await sendMessage(
+      process.env.SUPPORT_PHONE!,
+      `✅ *Dispute Resolved — Release to Seller*\n\nTXN: ${txn.transactionId}\nProcess payout via: POST /admin/transactions/${txn.transactionId}/release`,
+    ).catch(() => {});
 
     const seller = await User.findById(txn.seller);
     if (seller) {
       await sendMessage(seller.phone,
         `✅ *Dispute Resolved in Your Favour*\n\n` +
         `Transaction: ${txn.transactionId}\n` +
-        `Payment released: ₦${txn.sellerReceives.toLocaleString()}\n\n` +
-        `Resolution: ${resolution}`
-      );
-    }
-
-    const buyer = await User.findById(txn.buyer);
-    if (buyer) {
-      await sendMessage(buyer.phone,
-        `❌ *Dispute Resolved — Payment Released to Seller*\n\n` +
-        `Transaction: ${txn.transactionId}\n\n` +
-        `Resolution: ${resolution}\n\n` +
-        `Contact support if you believe this is incorrect: ${process.env.SUPPORT_PHONE}`
-      );
+        `Your payment of ₦${txn.sellerReceives?.toLocaleString()} is being processed.\n\n` +
+        `Resolution: ${resolution}`,
+      ).catch(() => {});
     }
   }
 
@@ -220,7 +271,7 @@ router.post('/users/:phone/ban', adminAuth, async (req: AdminRequest, res: Respo
   const { reason } = req.body;
   await User.findOneAndUpdate(
     { phone: req.params.phone },
-    { isBanned: true, banReason: reason || 'Policy violation' }
+    { isBanned: true, banReason: reason || 'Policy violation' },
   );
   res.json({ success: true });
 });
@@ -228,7 +279,7 @@ router.post('/users/:phone/ban', adminAuth, async (req: AdminRequest, res: Respo
 router.post('/users/:phone/unban', adminAuth, async (req: AdminRequest, res: Response) => {
   await User.findOneAndUpdate(
     { phone: req.params.phone },
-    { isBanned: false, banReason: undefined }
+    { isBanned: false, banReason: undefined },
   );
   res.json({ success: true });
 });

@@ -81,6 +81,7 @@ export interface IListing extends Document {
   giftCardCurrency?: string;
   giftCardCode?:     string; // revealed only after confirmed purchase
 
+  paymentLink?: string;
   screenshotUrls:   string[];
   status:           ListingStatus;
   isFeatured:       boolean;
@@ -164,6 +165,7 @@ tiktokBanned:        { type: Boolean },
     giftCardCurrency: { type: String },
     giftCardCode:     { type: String },  // stored encrypted, revealed post-purchase
 
+    paymentLink: { type: String },
     screenshotUrls:  [{ type: String }],
     status:          { type: String, default: 'pending_verification', index: true },
     isFeatured:      { type: Boolean, default: false },

@@ -1,6 +1,6 @@
 import { sendMessage } from '../../services/whatsapp';
 import { clearSession } from '../session';
-import { releaseEscrow } from '../../services/paystack';
+import { releaseEscrow } from '../../services/flutterwave';
 import Transaction from '../../models/Transaction';
 import Listing     from '../../models/Listing';
 import User        from '../../models/User';
