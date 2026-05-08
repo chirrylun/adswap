@@ -127,14 +127,7 @@ export async function handleFlutterwaveEvent(event: any): Promise<void> {
   console.log('[FW] handleFlutterwaveEvent called — event:', event?.event, '| status:', event?.data?.status);
 
   if (event.event === 'charge.completed' && event.data?.status === 'successful') {
-    const meta = event.data.meta ?? {};
-    console.log('[FW] meta:', JSON.stringify(meta, null, 2));
-
-    if (meta.type === 'escrow_payment') {
-      await processEscrowPayment(event.data);
-    } else {
-      console.warn('[FW] Unhandled meta type:', meta.type);
-    }
+    await processEscrowPayment(event.data);
   } else {
     console.log('[FW] Event ignored — not a successful charge');
   }
@@ -142,40 +135,59 @@ export async function handleFlutterwaveEvent(event: any): Promise<void> {
 
 // ─── Internal: handle confirmed escrow charge ─────────────────────────────────
 async function processEscrowPayment(data: any): Promise<void> {
-  const transactionId = data.meta?.transaction_id;
-  const listingId     = data.meta?.listing_id;
+  // ── tx_ref is always reliable — meta is not ───────────────────────────────
+  const transactionId = data.tx_ref;   // e.g. "TXN-B02B83"
   const fwRef         = String(data.id);
 
-  console.log('[FW] processEscrowPayment — transactionId:', transactionId, '| listingId:', listingId, '| fwRef:', fwRef);
+  console.log('[FW] processEscrowPayment — tx_ref/transactionId:', transactionId, '| fwRef:', fwRef);
+
+  if (!transactionId) {
+    console.warn('[FW] No tx_ref on webhook payload — skipping');
+    return;
+  }
+
+  // ── Idempotency — don't process twice ─────────────────────────────────────
+  const alreadyProcessed = await Transaction.findOne({
+    transactionId,
+    status: { $ne: 'awaiting_payment' },
+  });
+  if (alreadyProcessed) {
+    console.log('[FW] Already processed:', transactionId);
+    return;
+  }
 
   const txn = await Transaction.findOne({
     transactionId,
     status: 'awaiting_payment',
-  }).populate('seller').populate('listing').populate('buyer');
+  })
+    .populate('seller')
+    .populate('listing')
+    .populate('buyer');
 
   console.log('[FW] Transaction lookup result:', txn ? `found — ${txn.transactionId}` : 'NOT FOUND');
 
   if (!txn) {
-    console.warn(`[FW] No awaiting_payment txn for transactionId: ${transactionId}`);
+    console.warn(`[FW] No awaiting_payment txn for tx_ref: ${transactionId}`);
     return;
   }
 
-  // Amount sanity: re-check amount >= expected
-  const { fee } = calculateFee(txn.amount);
+  // ── Amount sanity check ───────────────────────────────────────────────────
   if (data.amount < txn.amount * 0.98) {
-    console.warn(`[FW Webhook] Amount mismatch for ${txn.transactionId}`);
+    console.warn(`[FW] Amount mismatch — received: ${data.amount}, expected: ${txn.amount}`);
     return;
   }
 
-  txn.status              = 'transfer_in_progress';
-  txn.escrowHeld          = true;
-  txn.flutterwaveRef      = transactionId;
-  txn.transferStartedAt   = new Date();
+  txn.status            = 'transfer_in_progress';
+  txn.escrowHeld        = true;
+  txn.flutterwaveRef    = fwRef;
+  txn.transferStartedAt = new Date();
   await txn.save();
 
   const buyer   = txn.buyer  as any;
   const seller  = txn.seller as any;
   const listing = txn.listing as any;
+
+  console.log('[FW] Notifying buyer:', buyer?.phone, '| seller:', seller?.phone);
 
   // Notify buyer
   await sendMessage(buyer.phone,
@@ -193,13 +205,15 @@ async function processEscrowPayment(data: any): Promise<void> {
     `⏳ Funds auto-release to seller after 48 hrs if no dispute.`,
   );
 
-  // Notify seller — trigger credential-sharing flow
+  // Notify seller
   await sendMessage(seller.phone,
     `🔔 *Your account has been purchased!*\n\n` +
     `Transaction: *${txn.transactionId}*\n` +
-    `Listing: ${listing.listingId}\n` +
+    `Listing: ${listing?.listingId}\n` +
     `You will receive: ₦${txn.sellerReceives.toLocaleString()}\n\n` +
-    `💰 Funds are held in escrow and will be released once the buyer confirms.\n\n` +
+    `💰 Funds are held in escrow.\n\n` +
     `Reply *TRANSFER ${txn.transactionId}* to begin sharing credentials.`,
   );
+
+  console.log('[FW] ✅ Escrow confirmed and both parties notified for:', transactionId);
 }
