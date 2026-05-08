@@ -89,4 +89,12 @@ const TransactionSchema = new Schema<ITransaction>(
   { timestamps: true },
 );
 
+TransactionSchema.index(
+  { listingId: true, buyer: true, status: true },
+  {
+    unique: true,
+    partialFilterExpression: { status: 'awaiting_payment' },
+  }
+);
+
 export default mongoose.model<ITransaction>('Transaction', TransactionSchema);
