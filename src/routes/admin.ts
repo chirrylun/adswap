@@ -87,21 +87,8 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-  // Generate FW escrow payment link
-  let paymentLink = '';
-  try {
-    paymentLink = await createEscrowPaymentLink(
-      listing.listingId,
-      listing.price,
-      listing.seller.email ?? `${listing.seller.phone}@adswap.ng`,
-    );
-  } catch (err: any) {
-    console.error('[Admin] FW link generation failed:', err.message);
-    return res.status(502).json({ error: 'Could not generate payment link', detail: err.message });
-  }
-
-  listing.status      = 'active';
-  listing.paymentLink = paymentLink;
+  // ✅ no FW call needed here anymore — link generated fresh per BUY request
+  listing.status = 'active';
   await listing.save();
 
   await sendMessage(listing.seller.phone,
@@ -110,7 +97,7 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
     `🟢 Your listing is now *LIVE* and visible to buyers!`,
   ).catch(() => {});
 
-  res.json({ success: true, status: listing.status, paymentLink });
+  res.json({ success: true, status: listing.status });
 });
 
 router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Response) => {

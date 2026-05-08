@@ -1,6 +1,7 @@
 import { sendMessage, sendButtons } from '../../services/whatsapp';
 import { setSession, clearSession, updateSessionData } from '../session';
 import { calculateFee, transferToSeller } from '../../services/flutterwave';
+import { createEscrowPaymentLink } from '../../services/flutterwave';
 import { TYPE_LABELS } from '../../config/constants';
 import Listing     from '../../models/Listing';
 import Transaction from '../../models/Transaction';
@@ -160,92 +161,107 @@ export async function handleBuy(
   }
 
   // ── BUY [listingId] ────────────────────────────────────────────────────────
-  if (text.startsWith('BUY ')) {
-    const listingId = text.replace('BUY ', '').trim();
+  // ── BUY [listingId] ────────────────────────────────────────────────────────
+if (text.startsWith('BUY ')) {
+  const listingId = text.replace('BUY ', '').trim();
 
-    const listing = await Listing.findOne({ listingId, status: 'active' })
-      .populate<{ seller: any }>('seller');
+  const listing = await Listing.findOne({ listingId, status: 'active' })
+    .populate<{ seller: any }>('seller');
 
-    if (!listing) {
-      return sendMessage(phone,
-        `❌ Listing not found or no longer available.\n\nType *LISTINGS* to browse active listings.`,
-      );
-    }
+  if (!listing) {
+    return sendMessage(phone, `❌ Listing not found or no longer available.\n\nType *LISTINGS* to browse.`);
+  }
 
-    const buyer = await User.findOneAndUpdate(
-      { phone },
-      { $setOnInsert: { phone } },
-      { upsert: true, new: true },
+  const buyer = await User.findOneAndUpdate(
+    { phone },
+    { $setOnInsert: { phone } },
+    { upsert: true, new: true },
+  );
+
+  if (listing.seller.phone === phone) {
+    return sendMessage(phone, `❌ You can't buy your own listing.`);
+  }
+
+  const { fee, sellerReceives } = calculateFee(listing.price);
+  const transactionId           = `TXN-${generateId(6)}`;
+
+  // Reuse existing pending txn if any
+  const existing = await Transaction.findOne({
+    listingId,
+    buyer:  buyer._id,
+    status: 'awaiting_payment',
+  });
+
+  if (existing) {
+    // Regenerate a fresh link for the existing txn too
+    const freshLink = await createEscrowPaymentLink(
+      existing.transactionId,
+      listingId,
+      listing.price,
     );
-
-    if (listing.seller.phone === phone) {
-      return sendMessage(phone, `❌ You can't buy your own listing.`);
-    }
-
-    const { fee, sellerReceives } = calculateFee(listing.price);
-    const transactionId           = `TXN-${generateId(6)}`;
-
-    // Reuse existing pending txn if any
-    const existing = await Transaction.findOne({
-      listingId,
-      buyer:  buyer._id,
-      status: 'awaiting_payment',
-    });
-
-    if (existing) {
-      return sendMessage(phone,
-        `⚠️ You already have a pending transaction for this listing.\n\n` +
-        `Transaction: *${existing.transactionId}*\n\n` +
-        `Complete payment here:\n${listing.paymentLink}\n\n` +
-        `Type *CANCEL* to abandon it.`,
-      );
-    }
-
-    await Transaction.create({
-      transactionId,
-      listing:        listing._id,
-      listingId,
-      buyer:          buyer._id,
-      seller:         listing.seller._id,
-      amount:         listing.price,
-      platformFee:    fee,
-      sellerReceives,
-      status:         'awaiting_payment',
-    });
-
-    await setSession(phone, 'buy_awaiting_payment', { transactionId, listingId });
-
-    const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
-
-    // Use the pre-generated payment link stored when listing was approved
-    const paymentLink = listing.paymentLink ?? '(link unavailable — contact support)';
-
-    // Notify seller that a buyer is interested
-    await sendMessage(listing.seller.phone,
-      `👀 *Someone is interested in your listing!*\n\n` +
-      `Listing: *${listing.listingId}* — ${typeLabel}\n\n` +
-      `A buyer is reviewing the payment page right now.\n\n` +
-      `💡 *Get ready:* Have the account credentials ready to share.\n` +
-      `Credentials will only be requested once payment is confirmed and funds are held in escrow — you'll be notified immediately.`,
-    ).catch(() => {});
-
     return sendMessage(phone,
-      `🔒 *AdSwap Escrow Protection*\n\n` +
-      `*${typeLabel}*\n` +
-      `🆔 ${listingId}\n` +
-      `💰 Price: ₦${listing.price.toLocaleString()}\n` +
-      `*How escrow works:*\n` +
-      `1️⃣  You pay AdSwap — not the seller directly\n` +
-      `2️⃣  Funds are held securely until transfer is complete\n` +
-      `3️⃣  Seller shares login credentials with you\n` +
-      `4️⃣  You confirm full access within 48 hrs\n` +
-      `5️⃣  Funds released to seller\n\n` +
-      `*Pay now:*\n${paymentLink}\n\n` +
-      `Transaction ID: *${transactionId}*\n` +
-      `Save this for reference.\n\n` +
-      `Type *CANCEL* to exit.`,
+      `⚠️ You already have a pending transaction for this listing.\n\n` +
+      `Transaction: *${existing.transactionId}*\n\n` +
+      `Complete payment here:\n${freshLink}\n\n` +
+      `Type *CANCEL* to abandon it.`,
     );
   }
+
+  // ── Generate fresh payment link for this buyer ────────────────────────────
+  let paymentLink: string;
+  try {
+    paymentLink = await createEscrowPaymentLink(
+      transactionId,
+      listingId,
+      listing.price,
+    );
+  } catch (err: any) {
+    console.error('[Buy] FW link generation failed:', err.message);
+    return sendMessage(phone,
+      `❌ Could not generate payment link. Please try again or contact support.`,
+    );
+  }
+
+  await Transaction.create({
+    transactionId,
+    listing:        listing._id,
+    listingId,
+    buyer:          buyer._id,
+    seller:         listing.seller._id,
+    amount:         listing.price,
+    platformFee:    fee,
+    sellerReceives,
+    status:         'awaiting_payment',
+  });
+
+  await setSession(phone, 'buy_awaiting_payment', { transactionId, listingId });
+
+  const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
+
+  await sendMessage(listing.seller.phone,
+    `👀 *Someone is interested in your listing!*\n\n` +
+    `Listing: *${listing.listingId}* — ${typeLabel}\n\n` +
+    `A buyer is reviewing the payment page right now.\n\n` +
+    `💡 Get your credentials ready — you'll be prompted once payment clears.`,
+  ).catch(() => {});
+
+  return sendMessage(phone,
+    `🔒 *AdSwap Escrow Protection*\n\n` +
+    `*${typeLabel}*\n` +
+    `🆔 ${listingId}\n` +
+    `💰 Price: ₦${listing.price.toLocaleString()}\n\n` +
+    `*How escrow works:*\n` +
+    `1️⃣  You pay AdSwap — not the seller directly\n` +
+    `2️⃣  Funds are held securely until transfer is complete\n` +
+    `3️⃣  Seller shares login credentials with you\n` +
+    `4️⃣  You confirm full access within 48 hrs\n` +
+    `5️⃣  Funds released to seller\n\n` +
+    `*Pay now:*\n${paymentLink}\n\n` +
+    `Transaction ID: *${transactionId}*\n` +
+    `Save this for reference.\n\n` +
+    `Type *CANCEL* to exit.`,
+  );
+}
 }
 
 // ─── Seller: TRANSFER [txnId] — begin credential-sharing flow ─────────────────

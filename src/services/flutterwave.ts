@@ -27,25 +27,22 @@ export function calculateFee(amount: number): {
 }
 
 // ─── Generate escrow payment link ─────────────────────────────────────────────
-// Called when a listing is approved — link stored on the listing itself.
+// Called when a buy request is made — link stored on the listing itself.
 export async function createEscrowPaymentLink(
-  listingId: string,
-  amount:    number,
-  sellerEmail: string,
+  transactionId: string,
+  listingId:     string,
+  amount:        number,
 ): Promise<string> {
-  const txRef = `adswap_${listingId}_${Date.now()}`;
-
   const res = await fw.post('/payments', {
-    tx_ref:       txRef,
+    tx_ref:   transactionId,          // unique per buyer per listing
     amount,
-    currency:     'NGN',
-    
-    customer:     { email: sellerEmail, name: 'AdSwap Buyer' },
+    currency: 'NGN',
+    customer: { email: `adswap@escrow.ng`, name: 'AdSwap Buyer' },
     customizations: {
       title:       'AdSwap Escrow',
       description: `Secure purchase — ${listingId}`,
     },
-    meta: { listing_id: listingId, type: 'escrow_payment' },
+    meta: { listing_id: listingId, transaction_id: transactionId, type: 'escrow_payment' },
   });
 
   if (res.data?.status !== 'success' || !res.data?.data?.link) {
@@ -54,6 +51,7 @@ export async function createEscrowPaymentLink(
 
   return res.data.data.link;
 }
+
 
 // ─── Verify a FW transaction by ID ───────────────────────────────────────────
 export async function verifyFlutterwaveTransaction(transactionId: string) {
@@ -130,13 +128,13 @@ export async function handleFlutterwaveEvent(event: any): Promise<void> {
 
 // ─── Internal: handle confirmed escrow charge ─────────────────────────────────
 async function processEscrowPayment(data: any): Promise<void> {
+  const transactionId = data.meta?.transaction_id;  // ← now reliable
   const listingId     = data.meta?.listing_id;
-  const transactionId = String(data.id);
-  const txRef         = data.tx_ref;
+  const fwRef         = String(data.id);
 
-  // Idempotency: parse txRef → listingId_timestamp to find existing transaction
+  // ✅ look up by our transactionId — unique and unambiguous
   const txn = await Transaction.findOne({
-    listingId,
+    transactionId,
     status: 'awaiting_payment',
   })
     .populate('seller')
@@ -144,7 +142,7 @@ async function processEscrowPayment(data: any): Promise<void> {
     .populate('buyer');
 
   if (!txn) {
-    console.warn(`[FW Webhook] No awaiting_payment txn for listing ${listingId}`);
+    console.warn(`[FW Webhook] No awaiting_payment txn: ${transactionId}`);
     return;
   }
 
