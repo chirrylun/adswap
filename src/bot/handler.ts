@@ -61,23 +61,23 @@ export async function handleIncoming(
     return sendMessage(phone, '❌ Action cancelled.\n\nType *MENU* to start again.');
   }
 
-  // ── Notification handlers ──────────────────────────────────────────────────────────────
-  if (upper.startsWith('OPTOUT ')) {
-  const assetType = text.replace('OPTOUT ', '').trim().toLowerCase();
+  // ── Notification commands ──────────────────────────────────────────────────
+if (upper.startsWith('OPTOUT ')) {
+  const assetType = upper.replace('OPTOUT ', '').trim().toLowerCase();
   return handleOptOut(phone, assetType);
 }
 
 if (upper.startsWith('OPTIN ')) {
-  const assetType = text.replace('OPTIN ', '').trim().toLowerCase();
+  const assetType = upper.replace('OPTIN ', '').trim().toLowerCase();
   return handleOptIn(phone, assetType);
-}
-
-if (upper === 'NOTIFICATIONS OFF') {
-  return handleNotificationsToggle(phone, false);
 }
 
 if (upper === 'NOTIFICATIONS ON') {
   return handleNotificationsToggle(phone, true);
+}
+
+if (upper === 'NOTIFICATIONS OFF') {
+  return handleNotificationsToggle(phone, false);
 }
 
   // ── Sell flow ──────────────────────────────────────────────────────────────

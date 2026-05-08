@@ -124,7 +124,7 @@ export async function handleOptOut(
   phone:     string,
   assetType: string,
 ): Promise<void> {
-  const { TYPE_LABELS } = await import('../config/constants');
+  
   const label = TYPE_LABELS[assetType];
 
   if (!label) {
@@ -152,7 +152,7 @@ export async function handleOptIn(
   phone:     string,
   assetType: string,
 ): Promise<void> {
-  const { TYPE_LABELS } = await import('../config/constants');
+
   const label = TYPE_LABELS[assetType];
 
   if (!label) {
