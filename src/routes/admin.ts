@@ -303,7 +303,23 @@ router.get('/users', adminAuth, async (req: AdminRequest, res: Response) => {
     User.countDocuments(filter),
   ]);
 
-  res.json({ users, total, page: +page, pages: Math.ceil(total / +limit) });
+  // Attach active listing count to each user
+  const userIds = users.map(u => u._id);
+  const listingCounts = await Listing.aggregate([
+    { $match: { seller: { $in: userIds }, status: 'active' } },
+    { $group: { _id: '$seller', count: { $sum: 1 } } },
+  ]);
+
+  const countMap = Object.fromEntries(
+    listingCounts.map(l => [l._id.toString(), l.count])
+  );
+
+  const enriched = users.map(u => ({
+    ...u.toObject(),
+    activeListings: countMap[u._id.toString()] ?? 0,
+  }));
+
+  res.json({ users: enriched, total, page: +page, pages: Math.ceil(total / +limit) });
 });
 
 // ── Users ─────────────────────────────────────────────────────────────────────
