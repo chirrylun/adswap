@@ -33,8 +33,9 @@ export async function createEscrowPaymentLink(
   listingId:     string,
   amount:        number,
 ): Promise<string> {
-  const res = await fw.post('/payments', {
-    tx_ref:   transactionId,          // unique per buyer per listing
+
+  const payload = {
+    tx_ref:   transactionId,
     amount,
     currency: 'NGN',
     customer: { email: `adswap@escrow.ng`, name: 'AdSwap Buyer' },
@@ -43,13 +44,34 @@ export async function createEscrowPaymentLink(
       description: `Secure purchase — ${listingId}`,
     },
     meta: { listing_id: listingId, transaction_id: transactionId, type: 'escrow_payment' },
-  });
+  };
 
-  if (res.data?.status !== 'success' || !res.data?.data?.link) {
-    throw new Error(`Flutterwave link error: ${res.data?.message}`);
+  console.log('[FW] createEscrowPaymentLink — payload:', JSON.stringify(payload, null, 2));
+  console.log('[FW] Key present:', !!process.env.FLUTTERWAVE_SECRET_KEY);
+  console.log('[FW] Key prefix:', process.env.FLUTTERWAVE_SECRET_KEY?.slice(0, 15));
+
+  try {
+    const res = await fw.post('/payments', payload);
+
+    console.log('[FW] Response status:', res.status);
+    console.log('[FW] Response body:', JSON.stringify(res.data, null, 2));
+
+    if (res.data?.status !== 'success' || !res.data?.data?.link) {
+      throw new Error(`Flutterwave link error: ${res.data?.message}`);
+    }
+
+    return res.data.data.link;
+
+  } catch (err: any) {
+    // Axios wraps non-2xx as errors — log the actual FW response body
+    if (err.response) {
+      console.error('[FW] Error status:', err.response.status);
+      console.error('[FW] Error body:', JSON.stringify(err.response.data, null, 2));
+    } else {
+      console.error('[FW] Network/unknown error:', err.message);
+    }
+    throw err;
   }
-
-  return res.data.data.link;
 }
 
 
