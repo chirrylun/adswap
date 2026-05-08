@@ -12,6 +12,11 @@ import {
 import { handleListings }                                   from './flows/listings';
 import { handleDispute }                                    from './flows/dispute';
 import { handleRate }                        from './flows/confirm';
+import {
+  handleOptOut,
+  handleOptIn,
+  handleNotificationsToggle,
+} from '../services/notifications';
 import User                                                 from '../models/User';
 
 export async function handleIncoming(
@@ -55,6 +60,25 @@ export async function handleIncoming(
     await clearSession(phone);
     return sendMessage(phone, '❌ Action cancelled.\n\nType *MENU* to start again.');
   }
+
+  // ── Notification handlers ──────────────────────────────────────────────────────────────
+  if (upper.startsWith('OPTOUT ')) {
+  const assetType = text.replace('OPTOUT ', '').trim().toLowerCase();
+  return handleOptOut(phone, assetType);
+}
+
+if (upper.startsWith('OPTIN ')) {
+  const assetType = text.replace('OPTIN ', '').trim().toLowerCase();
+  return handleOptIn(phone, assetType);
+}
+
+if (upper === 'NOTIFICATIONS OFF') {
+  return handleNotificationsToggle(phone, false);
+}
+
+if (upper === 'NOTIFICATIONS ON') {
+  return handleNotificationsToggle(phone, true);
+}
 
   // ── Sell flow ──────────────────────────────────────────────────────────────
   if (upper === 'SELL' || session?.step?.startsWith('sell_')) {

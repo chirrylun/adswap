@@ -5,6 +5,7 @@ import { adminAuth, AdminRequest } from '../middleware/auth';
 import { adminLimiter, loginLimiter } from '../middleware/rateLimiter';
 import { sendMessage } from '../services/whatsapp';
 import { createEscrowPaymentLink, transferToSeller } from '../services/flutterwave';
+import { broadcastNewListing } from '../services/notifications';
 import Listing     from '../models/Listing';
 import Transaction from '../models/Transaction';
 import Dispute     from '../models/Dispute';
@@ -87,15 +88,20 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-  // ✅ no FW call needed here anymore — link generated fresh per BUY request
   listing.status = 'active';
   await listing.save();
 
+  // Notify seller
   await sendMessage(listing.seller.phone,
     `✅ *Listing Verified!*\n\n` +
     `Listing: *${listing.listingId}*\n\n` +
-    `🟢 Your listing is now *LIVE* and visible to buyers!`,
-  ).catch(() => {});
+    `🟢 Your listing is now *LIVE* and visible to buyers!`
+  );
+
+  // Broadcast to all users (fire-and-forget — don't block the response)
+  broadcastNewListing(listing).catch(err =>
+    console.error('[NOTIFY] Broadcast error:', err)
+  );
 
   res.json({ success: true, status: listing.status });
 });
