@@ -25,19 +25,22 @@ export interface IListing extends Document {
   description:      string;
   niche?:           string;
 
+  // ── Shared ─────────────────────────────────────────────────────────────────
+  accountCountry?:  string; // country the account is registered in (ad/social/adsense/play)
+
   // ── Google Ads specific ────────────────────────────────────────────────────
-  googleAdsSpend?:       string; // lifetime or monthly spend
-  googleAdsCurrency?:    string; // account currency
+  googleAdsSpend?:       string;
+  googleAdsCurrency?:    string;
   googleAdsAccountAge?:  string;
   googleAdsNiche?:       string;
   googleAdsSuspended?:   boolean;
 
   // ── Facebook Ads specific ──────────────────────────────────────────────────
-  metaSpendLimit?:       string; // current spend limit
+  metaSpendLimit?:       string;
   metaAccountAge?:       string;
   metaPixelAttached?:    boolean;
   metaRestricted?:       boolean;
-  metaBusinessManager?:  boolean; // is it a BM account
+  metaBusinessManager?:  boolean;
 
   // ── Twitter specific ───────────────────────────────────────────────────────
   twitterFollowers?:    string;
@@ -58,28 +61,28 @@ export interface IListing extends Document {
   tiktokNiche?:         string;
   tiktokAge?:           string;
   tiktokMonetized?:     boolean;
-  tiktokLives?:         boolean; // has LIVE access
+  tiktokLives?:         boolean;
   tiktokBanned?:        boolean;
 
   // ── AdSense site specific ──────────────────────────────────────────────────
   adsenseMonthlyEarnings?: string;
-  adsensePaymentStatus?:   string; // 'received' | 'threshold' | 'none'
+  adsensePaymentStatus?:   string;
   adsenseSiteUrl?:         string;
   adsenseNiche?:           string;
   adsenseAge?:             string;
   adsenseViolations?:      boolean;
 
   // ── Play Console specific ──────────────────────────────────────────────────
-  playConsoleApps?:        string; // number of apps
-  playConsoleRevenue?:     string; // monthly revenue
+  playConsoleApps?:        string;
+  playConsoleRevenue?:     string;
   playConsoleSuspended?:   boolean;
   playConsoleAge?:         string;
 
   // ── Gift Card specific ─────────────────────────────────────────────────────
-  giftCardBrand?:    string; // Amazon, iTunes, Steam, etc.
-  giftCardValue?:    string; // face value e.g. "$100"
+  giftCardBrand?:    string;
+  giftCardValue?:    string;
   giftCardCurrency?: string;
-  giftCardCode?:     string; // revealed only after confirmed purchase
+  giftCardCode?:     string;
 
   paymentLink?: string;
   screenshotUrls:   string[];
@@ -97,17 +100,20 @@ const ListingSchema = new Schema<IListing>(
     listingId:  { type: String, required: true, unique: true, index: true },
     seller:     { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     type: {
-  type:     String,
-  required: true,
-  enum:     [
-    'google_ad_account','facebook_ad_account','adsense_site',
-    'play_console','gift_card',
-    'twitter_account','instagram_account','tiktok_account',
-  ],
-},
+      type:     String,
+      required: true,
+      enum:     [
+        'google_ad_account','facebook_ad_account','adsense_site',
+        'play_console','gift_card',
+        'twitter_account','instagram_account','tiktok_account',
+      ],
+    },
     price:       { type: Number, required: true, min: 1000 },
     description: { type: String, required: true, maxlength: 600 },
     niche:       { type: String, maxlength: 100 },
+
+    // Shared
+    accountCountry: { type: String },
 
     // Google Ads
     googleAdsSpend:      { type: String },
@@ -124,26 +130,26 @@ const ListingSchema = new Schema<IListing>(
     metaBusinessManager: { type: Boolean },
 
     // Twitter
-twitterFollowers:    { type: String },
-twitterNiche:        { type: String },
-twitterAge:          { type: String },
-twitterMonetized:    { type: Boolean },
-twitterSuspended:    { type: Boolean },
+    twitterFollowers:    { type: String },
+    twitterNiche:        { type: String },
+    twitterAge:          { type: String },
+    twitterMonetized:    { type: Boolean },
+    twitterSuspended:    { type: Boolean },
 
-// Instagram
-instagramFollowers:  { type: String },
-instagramNiche:      { type: String },
-instagramAge:        { type: String },
-instagramMonetized:  { type: Boolean },
-instagramRestricted: { type: Boolean },
+    // Instagram
+    instagramFollowers:  { type: String },
+    instagramNiche:      { type: String },
+    instagramAge:        { type: String },
+    instagramMonetized:  { type: Boolean },
+    instagramRestricted: { type: Boolean },
 
-// TikTok
-tiktokFollowers:     { type: String },
-tiktokNiche:         { type: String },
-tiktokAge:           { type: String },
-tiktokMonetized:     { type: Boolean },
-tiktokLives:         { type: Boolean },
-tiktokBanned:        { type: Boolean },
+    // TikTok
+    tiktokFollowers:     { type: String },
+    tiktokNiche:         { type: String },
+    tiktokAge:           { type: String },
+    tiktokMonetized:     { type: Boolean },
+    tiktokLives:         { type: Boolean },
+    tiktokBanned:        { type: Boolean },
 
     // AdSense
     adsenseMonthlyEarnings: { type: String },
@@ -163,7 +169,7 @@ tiktokBanned:        { type: Boolean },
     giftCardBrand:    { type: String },
     giftCardValue:    { type: String },
     giftCardCurrency: { type: String },
-    giftCardCode:     { type: String },  // stored encrypted, revealed post-purchase
+    giftCardCode:     { type: String },
 
     paymentLink: { type: String },
     screenshotUrls:  [{ type: String }],

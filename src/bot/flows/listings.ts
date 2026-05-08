@@ -6,73 +6,75 @@ function formatListingSnippet(l: any): string {
   switch (l.type) {
     case 'google_ad_account':
       return [
-        l.googleAdsAccountAge && `📅 ${l.googleAdsAccountAge}`,
-        l.googleAdsSpend      && `💸 ${l.googleAdsSpend}`,
+        l.googleAdsAccountAge && `${l.googleAdsAccountAge} old`,
+        l.googleAdsSpend      && `${l.googleAdsSpend} spent`,
         l.googleAdsCurrency   && `(${l.googleAdsCurrency})`,
+        l.accountCountry      && `· ${l.accountCountry}`,
         l.googleAdsSuspended  ? '⚠️ Suspended' : '✅ Clean',
       ].filter(Boolean).join('  ');
-
+ 
     case 'facebook_ad_account':
       return [
-        l.metaAccountAge    && `📅 ${l.metaAccountAge}`,
-        l.metaSpendLimit    && `💳 ${l.metaSpendLimit}`,
+        l.metaAccountAge    && `${l.metaAccountAge} old`,
+        l.metaSpendLimit    && `Limit: ${l.metaSpendLimit}`,
+        l.accountCountry    && `· ${l.accountCountry}`,
         l.metaRestricted    ? '⚠️ Restricted' : '✅ Clean',
-        l.metaPixelAttached ? '📊 Pixel ✓' : null,
+        l.metaPixelAttached ? '· Pixel ✓' : null,
       ].filter(Boolean).join('  ');
-
-      case 'twitter_account':
-  return [
-    l.twitterFollowers && `👥 ${l.twitterFollowers}`,
-    l.twitterAge       && `📅 ${l.twitterAge}`,
-    l.twitterNiche     && `🏷️ ${l.twitterNiche}`,
-    l.twitterMonetized ? '💰 Monetized ✓' : null,
-    l.twitterSuspended ? '⚠️ Was suspended' : '✅ Clean',
-  ].filter(Boolean).join('  ');
-
-case 'instagram_account':
-  return [
-    l.instagramFollowers && `👥 ${l.instagramFollowers}`,
-    l.instagramAge       && `📅 ${l.instagramAge}`,
-    l.instagramNiche     && `🏷️ ${l.instagramNiche}`,
-    l.instagramMonetized  ? '💰 Monetized ✓' : null,
-    l.instagramRestricted ? '⚠️ Restricted'  : '✅ Clean',
-  ].filter(Boolean).join('  ');
-
-case 'tiktok_account':
-  return [
-    l.tiktokFollowers && `👥 ${l.tiktokFollowers}`,
-    l.tiktokAge       && `📅 ${l.tiktokAge}`,
-    l.tiktokNiche     && `🏷️ ${l.tiktokNiche}`,
-    l.tiktokMonetized ? '💰 Monetized ✓'   : null,
-    l.tiktokLives     ? '🔴 LIVE enabled ✓' : null,
-    l.tiktokBanned    ? '⚠️ Was banned'     : '✅ Clean',
-  ].filter(Boolean).join('  ');
-
+ 
+    case 'twitter_account':
+      return [
+        l.twitterFollowers && `${l.twitterFollowers} followers`,
+        l.twitterNiche     && `· ${l.twitterNiche}`,
+        l.accountCountry   && `· ${l.accountCountry}`,
+        l.twitterMonetized ? '💰 Monetized' : null,
+        l.twitterSuspended ? '⚠️ Suspended' : '✅ Clean',
+      ].filter(Boolean).join('  ');
+ 
+    case 'instagram_account':
+      return [
+        l.instagramFollowers && `${l.instagramFollowers} followers`,
+        l.instagramNiche     && `· ${l.instagramNiche}`,
+        l.accountCountry     && `· ${l.accountCountry}`,
+        l.instagramMonetized  ? '💰 Monetized' : null,
+        l.instagramRestricted ? '⚠️ Restricted' : '✅ Clean',
+      ].filter(Boolean).join('  ');
+ 
+    case 'tiktok_account':
+      return [
+        l.tiktokFollowers && `${l.tiktokFollowers} followers`,
+        l.tiktokNiche     && `· ${l.tiktokNiche}`,
+        l.accountCountry  && `· ${l.accountCountry}`,
+        l.tiktokMonetized ? '💰 Monetized' : null,
+        l.tiktokLives     ? '🔴 LIVE ✓'   : null,
+        l.tiktokBanned    ? '⚠️ Banned'   : '✅ Clean',
+      ].filter(Boolean).join('  ');
+ 
     case 'adsense_site':
       return [
-        l.adsenseAge             && `📅 ${l.adsenseAge}`,
-        l.adsenseMonthlyEarnings && `💰 $${l.adsenseMonthlyEarnings}/mo`,
-        l.adsenseSiteUrl         && `🌐 ${l.adsenseSiteUrl}`,
+        l.adsenseMonthlyEarnings && `$${l.adsenseMonthlyEarnings}/mo`,
+        l.adsenseSiteUrl         && `· ${l.adsenseSiteUrl}`,
+        l.accountCountry         && `· ${l.accountCountry}`,
         l.adsenseViolations      ? '⚠️ Violations' : '✅ Clean',
       ].filter(Boolean).join('  ');
-
+ 
     case 'play_console':
       return [
-        l.playConsoleAge     && `📅 ${l.playConsoleAge}`,
-        l.playConsoleApps    && `📱 ${l.playConsoleApps}`,
-        l.playConsoleRevenue && `💵 $${l.playConsoleRevenue}/mo`,
+        l.playConsoleApps    && `${l.playConsoleApps}`,
+        l.playConsoleRevenue && `· $${l.playConsoleRevenue}/mo`,
+        l.accountCountry     && `· ${l.accountCountry}`,
         l.playConsoleSuspended ? '⚠️ Suspended' : '✅ Clean',
       ].filter(Boolean).join('  ');
-
+ 
     case 'gift_card':
       return [
         l.giftCardBrand    && l.giftCardBrand,
-        l.giftCardValue    && `💵 ${l.giftCardValue}`,
-        l.giftCardCurrency && `🌍 ${l.giftCardCurrency}`,
+        l.giftCardValue    && `· ${l.giftCardValue}`,
+        l.giftCardCurrency && `(${l.giftCardCurrency})`,
       ].filter(Boolean).join('  ');
-
+ 
     default:
-      return l.description?.slice(0, 80) ?? '';
+      return l.description?.slice(0, 72) ?? '';
   }
 }
 
