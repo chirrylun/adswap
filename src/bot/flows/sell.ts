@@ -75,7 +75,7 @@ function getQuestions(type: string): Question[] {
           step:    'sell_q_meta_pixel',
           prompt:  `*Step 4 of 5 — Facebook Pixel* 📊\n\nIs a Facebook Pixel attached to this account?`,
           buttons: [
-            { id: 'META_PIX_YES', title: '✅ Yes, pixel attached' },
+            { id: 'META_PIX_YES', title: '✅ Yes' },
             { id: 'META_PIX_NO',  title: '❌ No pixel'             },
           ],
         },

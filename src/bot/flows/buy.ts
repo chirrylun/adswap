@@ -234,7 +234,6 @@ export async function handleBuy(
       `*${typeLabel}*\n` +
       `🆔 ${listingId}\n` +
       `💰 Price: ₦${listing.price.toLocaleString()}\n` +
-      `🏦 Platform fee (included): ₦${fee.toLocaleString()}\n\n` +
       `*How escrow works:*\n` +
       `1️⃣  You pay AdSwap — not the seller directly\n` +
       `2️⃣  Funds are held securely until transfer is complete\n` +
