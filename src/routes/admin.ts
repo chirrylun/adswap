@@ -155,6 +155,29 @@ router.post('/transactions/:id/release', adminAuth, async (req: AdminRequest, re
   }
 });
 
+// ── All transactions (paginated + filterable) ─────────────────────────────────
+router.get('/transactions', adminAuth, async (req: AdminRequest, res: Response) => {
+  const { status, page = 1, limit = 20 } = req.query;
+  const filter: any = status && status !== 'all' ? { status } : {};
+
+  const [transactions, total] = await Promise.all([
+    Transaction.find(filter)
+      .populate('buyer',  'phone')
+      .populate('seller', 'phone bankName bankAccountNumber bankAccountName')
+      .sort({ createdAt: -1 })
+      .skip((+page - 1) * +limit)
+      .limit(+limit),
+    Transaction.countDocuments(filter),
+  ]);
+
+  res.json({
+    transactions,
+    total,
+    page:  +page,
+    pages: Math.ceil(total / +limit),
+  });
+});
+
 // Pending release queue — for the dashboard payout list
 router.get('/transactions/pending-release', adminAuth, async (_req: AdminRequest, res: Response) => {
   const txns = await Transaction.find({ status: 'pending_release' })
@@ -164,6 +187,7 @@ router.get('/transactions/pending-release', adminAuth, async (_req: AdminRequest
 
   res.json({ transactions: txns });
 });
+
 
 // ── Disputes ──────────────────────────────────────────────────────────────────
 router.get('/disputes', adminAuth, async (req: AdminRequest, res: Response) => {
