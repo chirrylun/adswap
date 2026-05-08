@@ -1,20 +1,19 @@
-import { sendMessage } from '../../services/whatsapp';
-import { clearSession } from '../session';
-import { releaseEscrow } from '../../services/flutterwave';
-import Transaction from '../../models/Transaction';
-import Listing     from '../../models/Listing';
-import User        from '../../models/User';
+import { sendMessage }   from '../../services/whatsapp';
+import { clearSession }  from '../session';
+import Transaction       from '../../models/Transaction';
+import Listing           from '../../models/Listing';
+import User              from '../../models/User';
 
-export async function handleConfirm(
+// ── CONFIRM [txnId] — buyer confirms they have full access ────────────────────
+export async function handleBuyerConfirm(
   phone: string,
-  text:  string
+  text:  string,
 ): Promise<void> {
-  const parts = text.split(' ');
-  const txnId = parts[1];
+  const txnId = text.replace('CONFIRM ', '').trim();
 
   if (!txnId) {
     return sendMessage(phone,
-      'To confirm a transfer, reply:\n*CONFIRM [Transaction ID]*\n\nExample: CONFIRM TXN-ABC123'
+      `To confirm a transfer, reply:\n*CONFIRM [Transaction ID]*\n\nExample: CONFIRM TXN-ABC123`,
     );
   }
 
@@ -24,83 +23,94 @@ export async function handleConfirm(
   const txn = await Transaction.findOne({
     transactionId: txnId,
     buyer:         buyer._id,
-  }).populate('seller').populate('listing');
+  }).populate<{ seller: any; listing: any }>(['seller', 'listing']);
 
   if (!txn) {
-    return sendMessage(phone, '❌ Transaction not found. Check the ID and try again.');
+    return sendMessage(phone, `❌ Transaction not found. Check the ID and try again.`);
   }
 
-  if (txn.status === 'completed') {
-    return sendMessage(phone, `✅ This transaction was already confirmed.\n\nTransaction: ${txnId}`);
-  }
-
-  if (!['transfer_in_progress', 'buyer_confirming'].includes(txn.status)) {
+  if (txn.status === 'pending_release' || txn.status === 'completed') {
     return sendMessage(phone,
-      `❌ This transaction is not ready for confirmation.\n\n` +
-      `Current status: ${txn.status}\n\n` +
-      `If something is wrong, type: *DISPUTE ${txnId}*`
+      `✅ This transaction has already been confirmed.\n\nTransaction: ${txnId}`,
     );
   }
 
-  // Update transaction
-  txn.status          = 'completed';
-  txn.buyerConfirmedAt = new Date();
-  txn.completedAt      = new Date();
+  if (txn.status !== 'transfer_in_progress') {
+    return sendMessage(phone,
+      `❌ This transaction is not ready for confirmation.\n\n` +
+      `Current status: ${txn.status}\n\n` +
+      `If something is wrong, type: *DISPUTE ${txnId}*`,
+    );
+  }
+
+  // ── Flip to pending_release — admin processes the payout ──────────────────
+  txn.status      = 'pending_release';
+  txn.confirmedAt = new Date();
+  txn.releaseAt   = new Date();
   await txn.save();
 
   // Mark listing as sold
-  await Listing.findByIdAndUpdate(txn.listing, { status: 'sold' });
+  await Listing.findByIdAndUpdate(txn.listing?._id ?? txn.listing, { status: 'sold' });
 
   // Update seller stats
-  const seller = txn.seller as any;
-  seller.totalSales   += 1;
-  seller.lastActiveAt  = new Date();
-  await seller.save();
+  txn.seller.totalSales  += 1;
+  txn.seller.lastActiveAt = new Date();
+  await txn.seller.save();
 
   // Update buyer stats
-  buyer.totalPurchases += 1;
+  buyer.totalPurchases = (buyer.totalPurchases ?? 0) + 1;
   buyer.lastActiveAt   = new Date();
   await buyer.save();
 
-  // Release escrow to seller
-  await releaseEscrow(txn);
   await clearSession(phone);
 
-  // Notify buyer
+  // ── Alert admin for payout processing ─────────────────────────────────────
+  await sendMessage(
+    process.env.SUPPORT_PHONE!,
+    `✅ *Release Request — Buyer Confirmed*\n\n` +
+    `TXN: ${txn.transactionId}\n` +
+    `Seller: ${txn.seller.phone}\n` +
+    `Amount: ₦${txn.sellerReceives?.toLocaleString()}\n` +
+    `Bank: ${txn.seller.bankName} — ${txn.seller.bankAccountNumber}\n` +
+    `Account Name: ${txn.seller.bankAccountName}\n\n` +
+    `Process payout on the dashboard.`,
+  ).catch(() => {});
+
+  // ── Notify buyer ───────────────────────────────────────────────────────────
   await sendMessage(phone,
-    `🎉 *Transfer Confirmed!*\n\n` +
-    `Transaction: ${txnId}\n` +
-    `You now own the account.\n\n` +
-    `Please rate your experience with the seller:\n` +
+    `🎉 *Access Confirmed!*\n\n` +
+    `Transaction: ${txnId}\n\n` +
+    `Payment has been released to the seller and is being processed.\n\n` +
+    `Please rate your experience:\n` +
     `Reply: *RATE ${txnId} [1-5]*\n\n` +
-    `Example: RATE ${txnId} 5\n\n` +
-    `Thank you for using AdSwap! 🙏`
+    `Example: *RATE ${txnId} 5*\n\n` +
+    `Thank you for using AdSwap! 🙏`,
   );
 
-  // Notify seller
-  await sendMessage(seller.phone,
-    `💰 *Payment Released!*\n\n` +
+  // ── Notify seller ──────────────────────────────────────────────────────────
+  await sendMessage(txn.seller.phone,
+    `🎉 *Buyer has confirmed access!*\n\n` +
     `Transaction: ${txnId}\n` +
-    `Amount: ₦${txn.sellerReceives.toLocaleString()}\n\n` +
-    `Funds are being sent to your account.\n` +
+    `Your payout of ₦${txn.sellerReceives?.toLocaleString()} is being processed.\n\n` +
+    `Funds will be sent to:\n` +
+    `🏦 ${txn.seller.bankName} — ${txn.seller.bankAccountNumber}\n\n` +
     `Allow 1–2 business days for settlement.\n\n` +
-    `Thank you for selling on AdSwap! 🙏`
-  );
+    `Thank you for selling on AdSwap! 🙏`,
+  ).catch(() => {});
 }
 
-// ── Handle buyer rating ───────────────────────────────────────────────────────
+// ── RATE [txnId] [1-5] — buyer rates the seller ───────────────────────────────
 export async function handleRate(
   phone: string,
-  text:  string
+  text:  string,
 ): Promise<void> {
-  // RATE TXN-XXXXX 5
   const parts  = text.split(' ');
   const txnId  = parts[1];
   const rating = parseInt(parts[2], 10);
 
   if (!txnId || isNaN(rating) || rating < 1 || rating > 5) {
     return sendMessage(phone,
-      '❌ Invalid format.\n\nUse: *RATE [Transaction ID] [1-5]*\nExample: RATE TXN-ABC123 5'
+      `❌ Invalid format.\n\nUse: *RATE [Transaction ID] [1-5]*\nExample: RATE TXN-ABC123 5`,
     );
   }
 
@@ -108,29 +118,29 @@ export async function handleRate(
   const txn   = await Transaction.findOne({
     transactionId: txnId,
     buyer:         buyer?._id,
-    status:        'completed',
+    status:        { $in: ['pending_release', 'completed'] },
   }).populate<{ seller: any }>('seller');
 
   if (!txn) {
-    return sendMessage(phone, '❌ Transaction not found or not completed.');
+    return sendMessage(phone, `❌ Transaction not found or not yet confirmed.`);
   }
 
   if (txn.buyerRating) {
-    return sendMessage(phone, 'You have already rated this transaction.');
+    return sendMessage(phone, `You have already rated this transaction.`);
   }
 
   txn.buyerRating = rating;
   await txn.save();
 
-  // Update seller rating
-  const seller            = txn.seller;
-  const totalRatings      = seller.totalRatings + 1;
-  const newRating         = ((seller.sellerRating * seller.totalRatings) + rating) / totalRatings;
-  seller.sellerRating     = Math.round(newRating * 10) / 10;
-  seller.totalRatings     = totalRatings;
+  // Update seller rolling rating
+  const seller        = txn.seller;
+  const totalRatings  = (seller.totalRatings ?? 0) + 1;
+  const newRating     = (((seller.sellerRating ?? 0) * (seller.totalRatings ?? 0)) + rating) / totalRatings;
+  seller.sellerRating = Math.round(newRating * 10) / 10;
+  seller.totalRatings = totalRatings;
   await seller.save();
 
   await sendMessage(phone,
-    `✅ Rating submitted: ${'⭐'.repeat(rating)}\n\nThank you for your feedback!`
+    `✅ Rating submitted: ${'⭐'.repeat(rating)}\n\nThank you for your feedback!`,
   );
 }

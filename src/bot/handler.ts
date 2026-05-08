@@ -11,7 +11,7 @@ import {
 }                                                           from './flows/buy';
 import { handleListings }                                   from './flows/listings';
 import { handleDispute }                                    from './flows/dispute';
-import { handleConfirm, handleRate }                        from './flows/confirm';
+import { handleRate }                        from './flows/confirm';
 import User                                                 from '../models/User';
 
 export async function handleIncoming(
