@@ -275,6 +275,7 @@ export async function handleBuy(
       buyLocks.delete(lockKey);
     }
   }
+}
 
 // ─── Seller: TRANSFER [txnId] — begin credential-sharing flow ─────────────────
 export async function handleSellerTransfer(
@@ -519,5 +520,4 @@ export async function processAutoReleases(): Promise<void> {
       console.error(`[AutoRelease] Failed for ${txn.transactionId}:`, err);
     }
   }
-}
 }

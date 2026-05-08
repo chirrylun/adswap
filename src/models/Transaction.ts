@@ -87,14 +87,8 @@ const TransactionSchema = new Schema<ITransaction>(
     buyerReview:        { type: String, maxlength: 200 },
   },
   { timestamps: true },
-);
 
-TransactionSchema.index(
-  { listingId: true, buyer: true, status: true },
-  {
-    unique: true,
-    partialFilterExpression: { status: 'awaiting_payment' },
-  }
+  
 );
 
 export default mongoose.model<ITransaction>('Transaction', TransactionSchema);
