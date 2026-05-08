@@ -124,48 +124,39 @@ export async function transferToSeller(txn: ITransaction): Promise<void> {
 
 // ─── Process Flutterwave webhook events ──────────────────────────────────────
 export async function handleFlutterwaveEvent(event: any): Promise<void> {
-  const { event: eventType, data } = event;
+  console.log('[FW] handleFlutterwaveEvent called — event:', event?.event, '| status:', event?.data?.status);
 
-  if (eventType === 'charge.completed' && data?.status === 'successful') {
-    const meta      = data.meta ?? {};
-    const type      = meta.type;
-    const listingId = meta.listing_id;
+  if (event.event === 'charge.completed' && event.data?.status === 'successful') {
+    const meta = event.data.meta ?? {};
+    console.log('[FW] meta:', JSON.stringify(meta, null, 2));
 
-    if (type === 'escrow_payment' && listingId) {
-      await processEscrowPayment(data);
-    }
-  }
-
-  if (eventType === 'transfer.completed') {
-    if (data?.status === 'SUCCESSFUL') {
-      console.log(`✅ Transfer successful: ${data.reference}`);
+    if (meta.type === 'escrow_payment') {
+      await processEscrowPayment(event.data);
     } else {
-      console.error(`❌ Transfer failed: ${data.reference}`);
-      await sendMessage(
-        process.env.SUPPORT_PHONE!,
-        `❌ *Transfer Failed*\n\nReference: ${data.reference}\nReason: ${data.complete_message}`,
-      );
+      console.warn('[FW] Unhandled meta type:', meta.type);
     }
+  } else {
+    console.log('[FW] Event ignored — not a successful charge');
   }
 }
 
 // ─── Internal: handle confirmed escrow charge ─────────────────────────────────
 async function processEscrowPayment(data: any): Promise<void> {
-  const transactionId = data.meta?.transaction_id;  // ← now reliable
+  const transactionId = data.meta?.transaction_id;
   const listingId     = data.meta?.listing_id;
   const fwRef         = String(data.id);
 
-  // ✅ look up by our transactionId — unique and unambiguous
+  console.log('[FW] processEscrowPayment — transactionId:', transactionId, '| listingId:', listingId, '| fwRef:', fwRef);
+
   const txn = await Transaction.findOne({
     transactionId,
     status: 'awaiting_payment',
-  })
-    .populate('seller')
-    .populate('listing')
-    .populate('buyer');
+  }).populate('seller').populate('listing').populate('buyer');
+
+  console.log('[FW] Transaction lookup result:', txn ? `found — ${txn.transactionId}` : 'NOT FOUND');
 
   if (!txn) {
-    console.warn(`[FW Webhook] No awaiting_payment txn: ${transactionId}`);
+    console.warn(`[FW] No awaiting_payment txn for transactionId: ${transactionId}`);
     return;
   }
 

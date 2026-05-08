@@ -48,12 +48,10 @@ app.use('/webhook/whatsapp', express.raw({
   limit: '1mb',
 }));
 
-app.use('/webhook/flutterwave', express.raw({ type: 'application/json', limit: '1mb' }));
-
 // Parse raw buffer back to object for handler use
-app.use('/webhook', (req: Request, res, next) => {
+app.use('/webhook/whatsapp', (req: Request, res, next) => {
   if (Buffer.isBuffer(req.body)) {
-    (req as any).rawBody = req.body; // save raw buffer for signature check
+    (req as any).rawBody = req.body;
     try {
       req.body = JSON.parse(req.body.toString());
     } catch {

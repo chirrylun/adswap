@@ -100,16 +100,24 @@ router.post(
 );
 
 // ─── Flutterwave POST — Payment events ───────────────────────────────────────
+// ─── Flutterwave POST — Payment events ───────────────────────────────────────
 router.post(
   '/flutterwave',
   validateFlutterwaveWebhook,
   async (req: Request, res: Response) => {
-    res.sendStatus(200); // Acknowledge immediately — FW retries on non-200
+    res.sendStatus(200);
 
     try {
+      console.log('[FW Webhook] Raw body type:', typeof req.body);
+      console.log('[FW Webhook] Body:', JSON.stringify(req.body, null, 2));
+
       const event = typeof req.body === 'string'
         ? JSON.parse(req.body)
         : req.body;
+
+      console.log('[FW Webhook] Event type:', event?.event);
+      console.log('[FW Webhook] Data status:', event?.data?.status);
+
       await handleFlutterwaveEvent(event);
     } catch (err) {
       console.error('Flutterwave webhook error:', err);
