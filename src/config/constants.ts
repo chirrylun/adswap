@@ -34,14 +34,14 @@ export const TYPE_MAP: Record<string, string> = {
 };
 
 export const TYPE_LABELS: Record<string, string> = {
-  google_ad_account:   'Google Ads Account',
-  facebook_ad_account: 'Facebook/Meta Ads Account',
+  google_ad_account:   'Google Ads',
+  facebook_ad_account: 'Facebook/Meta Ads',
   adsense_site:        'AdSense Monetised Site',
-  play_console:        'Google Play Console Account',
+  play_console:        'Google Play Console',
   gift_card:           'Gift Card',
-  twitter_account:     'Twitter / X Account',
-  instagram_account:   'Instagram Account',
-  tiktok_account:      'TikTok Account',
+  twitter_account:     'Twitter / X',
+  instagram_account:   'Instagram',
+  tiktok_account:      'TikTok',
 };
 
 export const SESSION_STEPS = {

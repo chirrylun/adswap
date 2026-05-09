@@ -224,7 +224,7 @@ export async function handleListings(
 
   const rows = listings.map(l => ({
     id:          `VIEW ${l.listingId}`,
-    title:       `${TYPE_LABELS[l.type] ?? l.type}${l.isFeatured ? ' ⭐' : ''} — ₦${l.price.toLocaleString()}`,
+    title:       `${TYPE_LABELS[l.type] ?? l.type}${l.isFeatured ? ' ⭐' : ''} ₦${l.price.toLocaleString()}`,
     description: formatListingSnippet(l).slice(0, 72),
   }));
 
