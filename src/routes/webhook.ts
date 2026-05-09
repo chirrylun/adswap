@@ -5,8 +5,9 @@ import { handleIncoming } from '../bot/handler';
 import { markAsRead } from '../services/whatsapp';
 import { validateMetaWebhook } from '../middleware/validateWebhook';
 import { webhookLimiter, perPhoneLimiter } from '../middleware/rateLimiter';
+/*
 import { handleFlutterwaveEvent } from '../services/flutterwave';
-
+*/
 const router = Router();
 
 // ─── Flutterwave webhook signature validator ──────────────────────────────────
@@ -99,6 +100,7 @@ router.post(
   },
 );
 
+/*
 // ─── Flutterwave POST — Payment events ───────────────────────────────────────
 // ─── Flutterwave POST — Payment events ───────────────────────────────────────
 router.post(
@@ -124,5 +126,6 @@ router.post(
     }
   },
 );
+*/
 
 export default router;
