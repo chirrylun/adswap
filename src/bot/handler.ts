@@ -1,23 +1,17 @@
-import { sendMessage }                                     from '../services/whatsapp';
-import { getSession, clearSession }                         from './session';
-import { showWelcome, showHelp }                            from './flows/welcome';
-import { handleSell }                                       from './flows/sell';
-import {
-  handleBuy,
-  handleSellerTransfer,
-  handleCredentialFlow,
-  handleBankFlow,
-  handleBuyerConfirm,
-}                                                           from './flows/buy';
-import { handleListings }                                   from './flows/listings';
-import { handleDispute }                                    from './flows/dispute';
-import { handleRate }                        from './flows/confirm';
+import { sendMessage }    from '../services/whatsapp';
+import { getSession, clearSession } from './session';
+import { showWelcome, showHelp }    from './flows/welcome';
+import { handleSell }               from './flows/sell';
+import { handleBuy }                from './flows/buy';
+import { handleListings }           from './flows/listings';
+import { handleDispute }            from './flows/dispute';
+import { handleRate }               from './flows/confirm';
 import {
   handleOptOut,
   handleOptIn,
   handleNotificationsToggle,
 } from '../services/notifications';
-import User                                                 from '../models/User';
+import User from '../models/User';
 
 export async function handleIncoming(
   phone:    string,
@@ -62,23 +56,23 @@ export async function handleIncoming(
   }
 
   // ── Notification commands ──────────────────────────────────────────────────
-if (upper.startsWith('OPTOUT ')) {
-  const assetType = upper.replace('OPTOUT ', '').trim().toLowerCase();
-  return handleOptOut(phone, assetType);
-}
+  if (upper.startsWith('OPTOUT ')) {
+    const assetType = upper.replace('OPTOUT ', '').trim().toLowerCase();
+    return handleOptOut(phone, assetType);
+  }
 
-if (upper.startsWith('OPTIN ')) {
-  const assetType = upper.replace('OPTIN ', '').trim().toLowerCase();
-  return handleOptIn(phone, assetType);
-}
+  if (upper.startsWith('OPTIN ')) {
+    const assetType = upper.replace('OPTIN ', '').trim().toLowerCase();
+    return handleOptIn(phone, assetType);
+  }
 
-if (upper === 'NOTIFICATIONS ON') {
-  return handleNotificationsToggle(phone, true);
-}
+  if (upper === 'NOTIFICATIONS ON') {
+    return handleNotificationsToggle(phone, true);
+  }
 
-if (upper === 'NOTIFICATIONS OFF') {
-  return handleNotificationsToggle(phone, false);
-}
+  if (upper === 'NOTIFICATIONS OFF') {
+    return handleNotificationsToggle(phone, false);
+  }
 
   // ── Sell flow ──────────────────────────────────────────────────────────────
   if (upper === 'SELL' || session?.step?.startsWith('sell_')) {
@@ -90,33 +84,11 @@ if (upper === 'NOTIFICATIONS OFF') {
     return handleListings(phone, upper);
   }
 
-  // ── Buy — initiate purchase ────────────────────────────────────────────────
-  if (upper.startsWith('BUY ') || upper === 'LISTINGS') {
+  // ── Buy flow ───────────────────────────────────────────────────────────────
+  // Handles both LISTINGS (browse) and BUY [id] (initiate purchase).
+  // No session steps needed — buy is a single-shot command in the new flow.
+  if (upper.startsWith('BUY ')) {
     return handleBuy(phone, upper, session);
-  }
-
-  // ── Seller: begin credential-sharing flow ──────────────────────────────────
-  // Triggered after FW payment confirmed — seller replies TRANSFER [txnId]
-  if (upper.startsWith('TRANSFER ')) {
-    return handleSellerTransfer(phone, upper, session);
-  }
-
-  // ── Seller: credential question steps ─────────────────────────────────────
-  // step names: cred_q_email, cred_q_password, cred_q_2fa, cred_q_notes, etc.
-  if (session?.step?.startsWith('cred_q_')) {
-    return handleCredentialFlow(phone, text.trim(), session);
-  }
-
-  // ── Seller: bank detail steps ─────────────────────────────────────────────
-  // step names: bank_q_name, bank_q_number, bank_q_bank
-  if (session?.step?.startsWith('bank_q_')) {
-    return handleBankFlow(phone, text.trim(), session);
-  }
-
-  // ── Buyer: confirm receipt ─────────────────────────────────────────────────
-  // Replaces the old handleConfirm — now triggers pending_release + admin alert
-  if (upper.startsWith('CONFIRM ')) {
-    return handleBuyerConfirm(phone, upper);
   }
 
   // ── Dispute flow ───────────────────────────────────────────────────────────

@@ -21,33 +21,38 @@ export interface IListing extends Document {
   listingId:        string;
   seller:           mongoose.Types.ObjectId;
   type:             ListingType;
-  price:            number;
+
+  // ── Pricing ────────────────────────────────────────────────────────────────
+  price:            number;   // seller's asking price (what they receive)
+  platformFee:      number;   // AdSwap fee added on top
+  buyerPays:        number;   // price + platformFee — what buyer actually pays
+
   description:      string;
   niche?:           string;
 
   // ── Shared ─────────────────────────────────────────────────────────────────
-  accountCountry?:  string; // country the account is registered in (ad/social/adsense/play)
+  accountCountry?:  string;
 
   // ── Google Ads specific ────────────────────────────────────────────────────
-  googleAdsSpend?:       string;
-  googleAdsCurrency?:    string;
-  googleAdsAccountAge?:  string;
-  googleAdsNiche?:       string;
-  googleAdsSuspended?:   boolean;
+  googleAdsSpend?:      string;
+  googleAdsCurrency?:   string;
+  googleAdsAccountAge?: string;
+  googleAdsNiche?:      string;
+  googleAdsSuspended?:  boolean;
 
   // ── Facebook Ads specific ──────────────────────────────────────────────────
-  metaSpendLimit?:       string;
-  metaAccountAge?:       string;
-  metaPixelAttached?:    boolean;
-  metaRestricted?:       boolean;
-  metaBusinessManager?:  boolean;
+  metaSpendLimit?:      string;
+  metaAccountAge?:      string;
+  metaPixelAttached?:   boolean;
+  metaRestricted?:      boolean;
+  metaBusinessManager?: boolean;
 
   // ── Twitter specific ───────────────────────────────────────────────────────
-  twitterFollowers?:    string;
-  twitterNiche?:        string;
-  twitterAge?:          string;
-  twitterMonetized?:    boolean;
-  twitterSuspended?:    boolean;
+  twitterFollowers?:  string;
+  twitterNiche?:      string;
+  twitterAge?:        string;
+  twitterMonetized?:  boolean;
+  twitterSuspended?:  boolean;
 
   // ── Instagram specific ─────────────────────────────────────────────────────
   instagramFollowers?:  string;
@@ -57,12 +62,12 @@ export interface IListing extends Document {
   instagramRestricted?: boolean;
 
   // ── TikTok specific ────────────────────────────────────────────────────────
-  tiktokFollowers?:     string;
-  tiktokNiche?:         string;
-  tiktokAge?:           string;
-  tiktokMonetized?:     boolean;
-  tiktokLives?:         boolean;
-  tiktokBanned?:        boolean;
+  tiktokFollowers?: string;
+  tiktokNiche?:     string;
+  tiktokAge?:       string;
+  tiktokMonetized?: boolean;
+  tiktokLives?:     boolean;
+  tiktokBanned?:    boolean;
 
   // ── AdSense site specific ──────────────────────────────────────────────────
   adsenseMonthlyEarnings?: string;
@@ -73,10 +78,10 @@ export interface IListing extends Document {
   adsenseViolations?:      boolean;
 
   // ── Play Console specific ──────────────────────────────────────────────────
-  playConsoleApps?:        string;
-  playConsoleRevenue?:     string;
-  playConsoleSuspended?:   boolean;
-  playConsoleAge?:         string;
+  playConsoleApps?:      string;
+  playConsoleRevenue?:   string;
+  playConsoleSuspended?: boolean;
+  playConsoleAge?:       string;
 
   // ── Gift Card specific ─────────────────────────────────────────────────────
   giftCardBrand?:    string;
@@ -84,7 +89,6 @@ export interface IListing extends Document {
   giftCardCurrency?: string;
   giftCardCode?:     string;
 
-  paymentLink?: string;
   screenshotUrls:   string[];
   status:           ListingStatus;
   isFeatured:       boolean;
@@ -97,18 +101,23 @@ export interface IListing extends Document {
 
 const ListingSchema = new Schema<IListing>(
   {
-    listingId:  { type: String, required: true, unique: true, index: true },
-    seller:     { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    listingId: { type: String, required: true, unique: true, index: true },
+    seller:    { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     type: {
       type:     String,
       required: true,
-      enum:     [
-        'google_ad_account','facebook_ad_account','adsense_site',
-        'play_console','gift_card',
-        'twitter_account','instagram_account','tiktok_account',
+      enum: [
+        'google_ad_account', 'facebook_ad_account', 'adsense_site',
+        'play_console', 'gift_card',
+        'twitter_account', 'instagram_account', 'tiktok_account',
       ],
     },
+
+    // Pricing
     price:       { type: Number, required: true, min: 1000 },
+    platformFee: { type: Number, required: true },
+    buyerPays:   { type: Number, required: true },
+
     description: { type: String, required: true, maxlength: 600 },
     niche:       { type: String, maxlength: 100 },
 
@@ -130,11 +139,11 @@ const ListingSchema = new Schema<IListing>(
     metaBusinessManager: { type: Boolean },
 
     // Twitter
-    twitterFollowers:    { type: String },
-    twitterNiche:        { type: String },
-    twitterAge:          { type: String },
-    twitterMonetized:    { type: Boolean },
-    twitterSuspended:    { type: Boolean },
+    twitterFollowers: { type: String },
+    twitterNiche:     { type: String },
+    twitterAge:       { type: String },
+    twitterMonetized: { type: Boolean },
+    twitterSuspended: { type: Boolean },
 
     // Instagram
     instagramFollowers:  { type: String },
@@ -144,12 +153,12 @@ const ListingSchema = new Schema<IListing>(
     instagramRestricted: { type: Boolean },
 
     // TikTok
-    tiktokFollowers:     { type: String },
-    tiktokNiche:         { type: String },
-    tiktokAge:           { type: String },
-    tiktokMonetized:     { type: Boolean },
-    tiktokLives:         { type: Boolean },
-    tiktokBanned:        { type: Boolean },
+    tiktokFollowers: { type: String },
+    tiktokNiche:     { type: String },
+    tiktokAge:       { type: String },
+    tiktokMonetized: { type: Boolean },
+    tiktokLives:     { type: Boolean },
+    tiktokBanned:    { type: Boolean },
 
     // AdSense
     adsenseMonthlyEarnings: { type: String },
@@ -171,7 +180,6 @@ const ListingSchema = new Schema<IListing>(
     giftCardCurrency: { type: String },
     giftCardCode:     { type: String },
 
-    paymentLink: { type: String },
     screenshotUrls:  [{ type: String }],
     status:          { type: String, default: 'pending_verification', index: true },
     isFeatured:      { type: Boolean, default: false },
@@ -179,7 +187,7 @@ const ListingSchema = new Schema<IListing>(
     viewCount:       { type: Number, default: 0 },
     expiresAt:       { type: Date, required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // TTL index — MongoDB auto-deletes expired listings

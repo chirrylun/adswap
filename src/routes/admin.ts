@@ -40,7 +40,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
   const [
     totalUsers, totalListings, activeListings, pendingVerification,
     totalTransactions, completedTransactions, openDisputes,
-    pendingReleases, revenue,
+    revenue,
   ] = await Promise.all([
     User.countDocuments(),
     Listing.countDocuments(),
@@ -49,7 +49,6 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
     Transaction.countDocuments(),
     Transaction.countDocuments({ status: 'completed' }),
     Dispute.countDocuments({ status: 'open' }),
-    Transaction.countDocuments({ status: 'pending_release' }),
     Transaction.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$platformFee' } } },
@@ -59,7 +58,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
   res.json({
     users:        { total: totalUsers },
     listings:     { total: totalListings, active: activeListings, pendingVerification },
-    transactions: { total: totalTransactions, completed: completedTransactions, pendingRelease: pendingReleases },
+    transactions: { total: totalTransactions, completed: completedTransactions},
     disputes:     { open: openDisputes },
     revenue:      { total: revenue[0]?.total || 0 },
   });
@@ -130,6 +129,7 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
 });
 
 // ── Payout release ────────────────────────────────────────────────────────────
+/*
 // Called manually from dashboard or via WhatsApp PAYOUT command.
 router.post('/transactions/:id/release', adminAuth, async (req: AdminRequest, res: Response) => {
   const txn = await Transaction.findOne({
@@ -161,6 +161,8 @@ router.post('/transactions/:id/release', adminAuth, async (req: AdminRequest, re
   }
 });
 
+*/
+
 // ── All transactions (paginated + filterable) ─────────────────────────────────
 router.get('/transactions', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status, page = 1, limit = 20 } = req.query;
@@ -185,6 +187,7 @@ router.get('/transactions', adminAuth, async (req: AdminRequest, res: Response) 
 });
 
 // Pending release queue — for the dashboard payout list
+/*
 router.get('/transactions/pending-release', adminAuth, async (_req: AdminRequest, res: Response) => {
   const txns = await Transaction.find({ status: 'pending_release' })
     .populate('seller', 'phone bankName bankAccountNumber bankAccountName')
@@ -193,6 +196,7 @@ router.get('/transactions/pending-release', adminAuth, async (_req: AdminRequest
 
   res.json({ transactions: txns });
 });
+*/
 
 
 // ── Disputes ──────────────────────────────────────────────────────────────────
