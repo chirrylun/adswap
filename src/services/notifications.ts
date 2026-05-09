@@ -78,7 +78,7 @@ function buildListingBlurb(listing: any): string {
     `🆕 *New Listing — ${label}*${listing.isFeatured ? ' ⭐' : ''}\n` +
     `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
     (details ? `${details}\n` : '') +
-    `💰 Price: *₦${listing.price.toLocaleString()}*\n\n` +
+    `💰 Price: *₦${(listing.buyerPays || listing.price).toLocaleString()}*\n\n` +
     `To view full details and buy:\n` +
     `\`VIEW ${listing.listingId}\`\n\n` +
     `─────────────────\n` +
