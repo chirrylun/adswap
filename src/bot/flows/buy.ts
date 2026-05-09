@@ -125,17 +125,40 @@ function formatCredentials(type: string, data: Record<string, any>): string {
 }
 
 // ─── Main buy handler ─────────────────────────────────────────────────────────
-
-// ─── Main buy handler ─────────────────────────────────────────────────────────
 export async function handleBuy(
   phone:   string,
   text:    string,
   session: ISession,
 ): Promise<void> {
 
-  // ── LISTINGS — browse (unchanged) ─────────────────────────────────────────
+  // ── LISTINGS — browse ─────────────────────────────────────────────────────
   if (text === 'LISTINGS') {
-    // ... your existing LISTINGS block unchanged
+    const listings = await Listing.find({ status: 'active' })
+      .sort({ isFeatured: -1, createdAt: -1 })
+      .limit(10);
+
+    if (!listings.length) {
+      return sendMessage(phone,
+        `😔 *No active listings right now.*\n\nCheck back soon or type *SELL* to list something!`,
+      );
+    }
+
+    const lines = listings.map((l, i) => {
+      const typeLabel = TYPE_LABELS[l.type] ?? l.type;
+      return (
+        `*${i + 1}. ${typeLabel}*${l.isFeatured ? ' ⭐' : ''}\n` +
+        `💰 ₦${l.price.toLocaleString()}\n` +
+        `🆔 \`BUY ${l.listingId}\``
+      );
+    });
+
+    return sendMessage(phone,
+      `🛒 *Active Listings* (${listings.length})\n\n` +
+      lines.join('\n\n') +
+      `\n\n─────────────────\n` +
+      `To buy, copy and send the *BUY [ID]* command.\n\n` +
+      `Type *SELL* to list your own.`,
+    );
   }
 
   // ── BUY [listingId] ────────────────────────────────────────────────────────
@@ -162,17 +185,22 @@ export async function handleBuy(
       const buyer = await User.findOneAndUpdate(
         { phone },
         { $setOnInsert: { phone } },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: 'after' },
       );
 
       if (listing.seller.phone === phone) {
         return sendMessage(phone, `❌ You can't buy your own listing.`);
       }
 
+      const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
+
+      // ── TODO: PAYMENT FLOW (restore when ready) ───────────────────────────
+      // ── Re-enable this block to restore the full escrow payment flow ───────
+      /*
       const { fee, sellerReceives } = calculateFee(listing.price);
       const transactionId           = `TXN-${generateId(6)}`;
 
-      // ── Check for existing pending txn ────────────────────────────────────
+      // Check for existing pending txn
       const existing = await Transaction.findOne({
         listingId,
         buyer:  buyer._id,
@@ -193,7 +221,7 @@ export async function handleBuy(
         );
       }
 
-      // ── Generate payment link ─────────────────────────────────────────────
+      // Generate payment link
       let paymentLink: string;
       try {
         paymentLink = await createEscrowPaymentLink(
@@ -208,7 +236,7 @@ export async function handleBuy(
         );
       }
 
-      // ── Create transaction — DB index catches any race condition duplicate ─
+      // Create transaction — DB index catches any race condition duplicate
       try {
         await Transaction.create({
           transactionId,
@@ -222,7 +250,6 @@ export async function handleBuy(
           status:         'awaiting_payment',
         });
       } catch (err: any) {
-        // Duplicate key error from the unique index — another request won the race
         if (err.code === 11000) {
           const existing = await Transaction.findOne({
             listingId,
@@ -239,13 +266,12 @@ export async function handleBuy(
             `Type *CANCEL* to abandon it.`,
           );
         }
-        throw err; // rethrow unexpected errors
+        throw err;
       }
 
       await setSession(phone, 'buy_awaiting_payment', { transactionId, listingId });
 
-      const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
-
+      // Notify seller
       await sendMessage(listing.seller.phone,
         `👀 *Someone is interested in your listing!*\n\n` +
         `Listing: *${listing.listingId}* — ${typeLabel}\n\n` +
@@ -269,9 +295,39 @@ export async function handleBuy(
         `Save this for reference.\n\n` +
         `Type *CANCEL* to exit.`,
       );
+      */
+      // ── END PAYMENT FLOW ──────────────────────────────────────────────────
+
+      // ── TEMPORARY: admin-notified manual flow ─────────────────────────────
+      await sendMessage(
+        process.env.SUPPORT_PHONE!,
+        `🛒 *New Purchase Request*\n\n` +
+        `Listing: *${listingId}* — ${typeLabel}\n` +
+        `Price: ₦${listing.price.toLocaleString()}\n` +
+        `Buyer: ${phone}\n` +
+        `Seller: ${listing.seller.phone}\n\n` +
+        `Contact the buyer to arrange payment and transfer.`,
+      ).catch(err => console.error('[Buy] Admin notify error:', err));
+
+      // Notify seller too
+      await sendMessage(listing.seller.phone,
+        `👀 *Someone wants to buy your listing!*\n\n` +
+        `Listing: *${listingId}* — ${typeLabel}\n` +
+        `Price: ₦${listing.price.toLocaleString()}\n\n` +
+        `Our team will be in touch to facilitate the transaction.`,
+      ).catch(() => {});
+
+      return sendMessage(phone,
+        `✅ *Purchase Request Received!*\n\n` +
+        `*${typeLabel}*\n` +
+        `🆔 ${listingId}\n` +
+        `💰 Price: ₦${listing.price.toLocaleString()}\n\n` +
+        `Our team has been notified and will contact you shortly to arrange payment and transfer.\n\n` +
+        `Questions? Type *HELP*`,
+      );
+      // ── END TEMPORARY FLOW ────────────────────────────────────────────────
 
     } finally {
-      // Always release the lock — even if an error is thrown
       buyLocks.delete(lockKey);
     }
   }
@@ -306,7 +362,7 @@ export async function handleSellerTransfer(
   const firstQ    = questions[0];
 
   await setSession(phone, firstQ.step, {
-    transferFlow: true,
+    transferFlow:  true,
     transactionId: txnId,
     listingType:   type,
     buyerId:       String(txn.buyer),
@@ -331,8 +387,8 @@ export async function handleCredentialFlow(
 
   if (!data?.transferFlow) return;
 
-  const type      = data.listingType ?? 'default';
-  const questions = getCredentialQuestions(type);
+  const type       = data.listingType ?? 'default';
+  const questions  = getCredentialQuestions(type);
   const currentIdx = questions.findIndex(q => q.step === step);
 
   if (currentIdx === -1) {
@@ -348,7 +404,7 @@ export async function handleCredentialFlow(
     return sendMessage(phone, nextQ.prompt);
   }
 
-  // ── All credential questions answered — now collect bank details ──────────
+  // All credential questions answered — collect bank details
   const bankQ = BANK_QUESTIONS[0];
   await setSession(phone, bankQ.step, { ...updatedData, credsDone: true });
   return sendMessage(phone,
@@ -380,7 +436,7 @@ export async function handleBankFlow(
     return sendMessage(phone, nextQ.prompt);
   }
 
-  // ── All bank questions answered — save to user + send creds to buyer ──────
+  // All bank questions answered — save to user + send creds to buyer
   const seller = await User.findOne({ phone });
   if (seller) {
     seller.bankAccountName   = updatedData.bank_q_name;
@@ -402,11 +458,9 @@ export async function handleBankFlow(
   const buyer       = txn.buyer as any;
   const credentials = formatCredentials(updatedData.listingType, updatedData);
 
-  // Mark seller as ready
   txn.sellerReadyAt = new Date();
   await txn.save();
 
-  // Send credentials to buyer
   await sendMessage(buyer.phone,
     `🔑 *Account Credentials Received*\n\n` +
     `Transaction: *${txn.transactionId}*\n\n` +
@@ -441,7 +495,7 @@ export async function handleBuyerConfirm(
   text:  string,
 ): Promise<void> {
   const txnId = text.replace('CONFIRM ', '').trim();
-  const buyer  = await User.findOne({ phone });
+  const buyer = await User.findOne({ phone });
 
   const txn = await Transaction.findOne({
     transactionId: txnId,
@@ -455,10 +509,9 @@ export async function handleBuyerConfirm(
 
   txn.status      = 'pending_release';
   txn.confirmedAt = new Date();
-  txn.releaseAt   = new Date(); // immediate release flag
+  txn.releaseAt   = new Date();
   await txn.save();
 
-  // Alert admin for payout processing
   await sendMessage(
     process.env.SUPPORT_PHONE!,
     `✅ *Release Request — Buyer Confirmed*\n\n` +
@@ -490,9 +543,9 @@ export async function processAutoReleases(): Promise<void> {
   const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
   const txns = await Transaction.find({
-    status:           'transfer_in_progress',
-    sellerReadyAt:    { $lte: cutoff },
-    disputeRaisedAt:  { $exists: false },
+    status:          'transfer_in_progress',
+    sellerReadyAt:   { $lte: cutoff },
+    disputeRaisedAt: { $exists: false },
   }).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
 
   for (const txn of txns) {
