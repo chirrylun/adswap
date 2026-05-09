@@ -89,22 +89,20 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-  listing.status = 'active';
-  await listing.save();
+  // Use updateOne to avoid re-validating fields not being changed
+  await Listing.updateOne({ _id: listing._id }, { $set: { status: 'active' } });
 
-  // Notify seller
   await sendMessage(listing.seller.phone,
     `✅ *Listing Verified!*\n\n` +
     `Listing: *${listing.listingId}*\n\n` +
     `🟢 Your listing is now *LIVE* and visible to buyers!`
   );
 
-  // Broadcast to all users (fire-and-forget — don't block the response)
   broadcastNewListing(listing).catch(err =>
     console.error('[NOTIFY] Broadcast error:', err)
   );
 
-  res.json({ success: true, status: listing.status });
+  res.json({ success: true, status: 'active' });
 });
 
 router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Response) => {
