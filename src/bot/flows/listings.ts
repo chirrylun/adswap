@@ -228,7 +228,31 @@ async function showCategoryPicker(phone: string): Promise<void> {
 
 // ─── Step 2: Listings within a category ──────────────────────────────────────
 
-const rows = listings.map(l => ({
+async function showCategoryListings(phone: string, rawShort: string): Promise<void> {
+  // Normalise — WhatsApp may return the id uppercased or as-sent
+  const short = rawShort.toLowerCase();
+  const type  = SHORT_TO_TYPE[short];
+
+  if (!type) {
+    return sendMessage(phone,
+      `❌ Unknown category.\n\nType *LISTINGS* to browse categories.`
+    );
+  }
+
+  const label    = TYPE_LABELS[type] ?? type;
+  const listings = await Listing.find({ status: 'active', type: type as ListingType })
+    .populate('seller')
+    .sort({ isFeatured: -1, createdAt: -1 })
+    .limit(10);
+
+  if (!listings.length) {
+    return sendMessage(phone,
+      `📭 No active *${label}* listings right now.\n\n` +
+      `Type *LISTINGS* to browse other categories.`
+    );
+  }
+
+ const rows = listings.map(l => ({
   id:          `VIEW ${l.listingId}`,
   title:       `${l.isFeatured ? '⭐ ' : ''}₦${(l.buyerPays || l.price).toLocaleString()}`,
   description: formatListingSnippet(l).slice(0, 72),
@@ -245,6 +269,7 @@ return sendList(
   undefined,
   '🔒 Every transaction is escrow-protected.'
 );
+}
 
 // ─── Step 3: Single listing detail ───────────────────────────────────────────
 
