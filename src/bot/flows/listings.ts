@@ -1,9 +1,9 @@
-import { sendMessage, sendList, sendButtons } from '../../services/whatsapp';
+import { sendMessage, sendList } from '../../services/whatsapp';
 import { TYPE_LABELS } from '../../config/constants';
-import Listing from '../../models/Listing';
-import { ListingType } from '../../models/Listing';
+import Listing, { ListingType } from '../../models/Listing';
 
-// ─── Snippet builders ─────────────────────────────────────────────────────────
+// ─── Short code maps (row IDs must be ≤20 chars) ─────────────────────────────
+
 const TYPE_SHORT: Record<string, string> = {
   google_ad_account:   'gads',
   facebook_ad_account: 'fbads',
@@ -15,10 +15,26 @@ const TYPE_SHORT: Record<string, string> = {
   tiktok_account:      'tt',
 };
 
+// Handles both upper and lower case keys from WhatsApp
+const SHORT_TO_TYPE: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(TYPE_SHORT).map(([full, short]) => [short.toLowerCase(), full])),
+  ...Object.fromEntries(Object.entries(TYPE_SHORT).map(([full, short]) => [short.toUpperCase(), full])),
+};
 
-const SHORT_TO_TYPE: Record<string, string> = Object.fromEntries(
-  Object.entries(TYPE_SHORT).map(([full, short]) => [short, full])
-);
+// ─── Category emoji map ───────────────────────────────────────────────────────
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  google_ad_account:   '🎯',
+  facebook_ad_account: '📘',
+  adsense_site:        '💵',
+  play_console:        '📱',
+  gift_card:           '🎁',
+  twitter_account:     '🐦',
+  instagram_account:   '📸',
+  tiktok_account:      '🎵',
+};
+
+// ─── Snippet builders ─────────────────────────────────────────────────────────
 
 function formatListingSnippet(l: any): string {
   switch (l.type) {
@@ -173,23 +189,9 @@ function formatFullDetails(l: any): string {
   }
 }
 
-// ─── Category emoji map ───────────────────────────────────────────────────────
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  google_ad_account:   '🎯',
-  facebook_ad_account: '📘',
-  adsense_site:        '💵',
-  play_console:        '📱',
-  gift_card:           '🎁',
-  twitter_account:     '🐦',
-  instagram_account:   '📸',
-  tiktok_account:      '🎵',
-};
-
 // ─── Step 1: Category picker ──────────────────────────────────────────────────
 
 async function showCategoryPicker(phone: string): Promise<void> {
-  // Only show categories that actually have active listings
   const activeCounts = await Listing.aggregate([
     { $match: { status: 'active' } },
     { $group: { _id: '$type', count: { $sum: 1 } } },
@@ -202,14 +204,16 @@ async function showCategoryPicker(phone: string): Promise<void> {
     );
   }
 
-  // Build rows only for types that have stock
   const rows = activeCounts
-  .sort((a, b) => b.count - a.count)
-  .map(({ _id: type, count }: { _id: string; count: number }) => ({
-    id:          `BR_${TYPE_SHORT[type] ?? type}`,   // e.g. "BR_fbads" — well under 20 chars
-    title:       `${CATEGORY_EMOJI[type] ?? '📦'} ${TYPE_LABELS[type] ?? type}`,
-    description: `${count} listing${count !== 1 ? 's' : ''} available`,
-  }));
+    .sort((a, b) => b.count - a.count)
+    .map(({ _id: type, count }: { _id: string; count: number }) => {
+      const short = TYPE_SHORT[type] ?? type;
+      return {
+        id:          `BR_${short}`,   // e.g. BR_fbads — always ≤20 chars
+        title:       `${CATEGORY_EMOJI[type] ?? '📦'} ${TYPE_LABELS[type] ?? type}`,
+        description: `${count} listing${count !== 1 ? 's' : ''} available`,
+      };
+    });
 
   return sendList(
     phone,
@@ -224,14 +228,18 @@ async function showCategoryPicker(phone: string): Promise<void> {
 
 // ─── Step 2: Listings within a category ──────────────────────────────────────
 
-async function showCategoryListings(phone: string, type: string): Promise<void> {
-  const label = TYPE_LABELS[type];
-  if (!label) {
+async function showCategoryListings(phone: string, rawShort: string): Promise<void> {
+  // Normalise — WhatsApp may return the id uppercased or as-sent
+  const short = rawShort.toLowerCase();
+  const type  = SHORT_TO_TYPE[short];
+
+  if (!type) {
     return sendMessage(phone,
       `❌ Unknown category.\n\nType *LISTINGS* to browse categories.`
     );
   }
 
+  const label    = TYPE_LABELS[type] ?? type;
   const listings = await Listing.find({ status: 'active', type: type as ListingType })
     .populate('seller')
     .sort({ isFeatured: -1, createdAt: -1 })
@@ -245,7 +253,7 @@ async function showCategoryListings(phone: string, type: string): Promise<void> 
   }
 
   const rows = listings.map(l => ({
-    id:          `VIEW ${l.listingId}`,
+    id:          `VIEW ${l.listingId}`,   // e.g. "VIEW ADS-8C47A" — well under 20 chars
     title:       `${l.isFeatured ? '⭐ ' : ''}₦${(l.buyerPays || l.price).toLocaleString()}`,
     description: formatListingSnippet(l).slice(0, 72),
   }));
@@ -315,18 +323,22 @@ async function showListingDetail(phone: string, listingId: string): Promise<void
 
 export async function handleListings(
   phone: string,
-  text:  string
+  text:  string   // arrives already uppercased from handler.ts
 ): Promise<void> {
+  // Step 3 — single listing detail
   if (text.startsWith('VIEW ')) {
     const listingId = text.replace('VIEW ', '').trim();
     return showListingDetail(phone, listingId);
   }
 
+  // Step 2 — category listings
+  // text arrives as "BR_FBADS" (uppercased by handler) or "BR_fbads" (as sent)
+  // showCategoryListings normalises to lowercase internally
   if (text.startsWith('BR_')) {
-    const short = text.replace('BR_', '').trim().toLowerCase();
-    const type  = SHORT_TO_TYPE[short] ?? short;
-    return showCategoryListings(phone, type);
+    const rawShort = text.replace('BR_', '').trim();
+    return showCategoryListings(phone, rawShort);
   }
 
+  // Step 1 — category picker
   return showCategoryPicker(phone);
 }
