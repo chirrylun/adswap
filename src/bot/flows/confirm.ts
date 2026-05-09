@@ -1,3 +1,4 @@
+/*
 import { sendMessage }   from '../../services/whatsapp';
 import { clearSession }  from '../session';
 import Transaction       from '../../models/Transaction';
@@ -144,3 +145,4 @@ export async function handleRate(
     `✅ Rating submitted: ${'⭐'.repeat(rating)}\n\nThank you for your feedback!`,
   );
 }
+*/

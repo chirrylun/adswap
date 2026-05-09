@@ -5,7 +5,9 @@ import { handleSell }               from './flows/sell';
 import { handleBuy }                from './flows/buy';
 import { handleListings }           from './flows/listings';
 import { handleDispute }            from './flows/dispute';
+/*
 import { handleRate }               from './flows/confirm';
+*/
 import {
   handleOptOut,
   handleOptIn,
@@ -96,10 +98,12 @@ export async function handleIncoming(
     return handleDispute(phone, upper, session, mediaId);
   }
 
+  /*
   // ── Rate seller ────────────────────────────────────────────────────────────
   if (upper.startsWith('RATE ')) {
     return handleRate(phone, upper);
   }
+  */
 
   // ── Media received outside a known flow ───────────────────────────────────
   if (
