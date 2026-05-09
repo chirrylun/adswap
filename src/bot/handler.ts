@@ -4,8 +4,9 @@ import { showWelcome, showHelp }    from './flows/welcome';
 import { handleSell }               from './flows/sell';
 import { handleBuy }                from './flows/buy';
 import { handleListings }           from './flows/listings';
-import { handleDispute }            from './flows/dispute';
 /*
+import { handleDispute }            from './flows/dispute';
+
 import { handleRate }               from './flows/confirm';
 */
 import {
@@ -93,12 +94,13 @@ export async function handleIncoming(
     return handleBuy(phone, upper, session);
   }
 
+  /*
   // ── Dispute flow ───────────────────────────────────────────────────────────
   if (upper.startsWith('DISPUTE') || session?.step?.startsWith('dispute_')) {
     return handleDispute(phone, upper, session, mediaId);
   }
 
-  /*
+  
   // ── Rate seller ────────────────────────────────────────────────────────────
   if (upper.startsWith('RATE ')) {
     return handleRate(phone, upper);
