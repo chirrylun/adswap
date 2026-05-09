@@ -228,48 +228,23 @@ async function showCategoryPicker(phone: string): Promise<void> {
 
 // ─── Step 2: Listings within a category ──────────────────────────────────────
 
-async function showCategoryListings(phone: string, rawShort: string): Promise<void> {
-  // Normalise — WhatsApp may return the id uppercased or as-sent
-  const short = rawShort.toLowerCase();
-  const type  = SHORT_TO_TYPE[short];
+const rows = listings.map(l => ({
+  id:          `VIEW ${l.listingId}`,
+  title:       `${l.isFeatured ? '⭐ ' : ''}₦${(l.buyerPays || l.price).toLocaleString()}`,
+  description: formatListingSnippet(l).slice(0, 72),
+}));
 
-  if (!type) {
-    return sendMessage(phone,
-      `❌ Unknown category.\n\nType *LISTINGS* to browse categories.`
-    );
-  }
-
-  const label    = TYPE_LABELS[type] ?? type;
-  const listings = await Listing.find({ status: 'active', type: type as ListingType })
-    .populate('seller')
-    .sort({ isFeatured: -1, createdAt: -1 })
-    .limit(10);
-
-  if (!listings.length) {
-    return sendMessage(phone,
-      `📭 No active *${label}* listings right now.\n\n` +
-      `Type *LISTINGS* to browse other categories.`
-    );
-  }
-
-  const rows = listings.map(l => ({
-    id:          `VIEW ${l.listingId}`,   // e.g. "VIEW ADS-8C47A" — well under 20 chars
-    title:       `${l.isFeatured ? '⭐ ' : ''}₦${(l.buyerPays || l.price).toLocaleString()}`,
-    description: formatListingSnippet(l).slice(0, 72),
-  }));
-
-  return sendList(
-    phone,
-    `${CATEGORY_EMOJI[type] ?? '📦'} *${label}*\n\n` +
-    `${listings.length} listing${listings.length !== 1 ? 's' : ''} available.\n` +
-    `Tap any listing to view full details and buy:\n\n` +
-    `_(Type *LISTINGS* to go back to categories)_`,
-    'View Listings',
-    [{ title: `${label} — Available Now`, rows }],
-    undefined,
-    '🔒 Every transaction is escrow-protected.'
-  );
-}
+return sendList(
+  phone,
+  `${CATEGORY_EMOJI[type] ?? '📦'} *${label}*\n\n` +
+  `${listings.length} listing${listings.length !== 1 ? 's' : ''} available.\n` +
+  `Tap any listing to view full details and buy:\n\n` +
+  `_(Type *LISTINGS* to go back to categories)_`,
+  'View Listings',
+  [{ title: 'Available Now', rows }],  // ← shortened, was "${label} — Available Now"
+  undefined,
+  '🔒 Every transaction is escrow-protected.'
+);
 
 // ─── Step 3: Single listing detail ───────────────────────────────────────────
 
