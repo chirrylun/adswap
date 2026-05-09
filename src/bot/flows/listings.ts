@@ -4,6 +4,21 @@ import Listing from '../../models/Listing';
 import { ListingType } from '../../models/Listing';
 
 // ─── Snippet builders ─────────────────────────────────────────────────────────
+const TYPE_SHORT: Record<string, string> = {
+  google_ad_account:   'gads',
+  facebook_ad_account: 'fbads',
+  adsense_site:        'adsense',
+  play_console:        'play',
+  gift_card:           'gc',
+  twitter_account:     'tw',
+  instagram_account:   'ig',
+  tiktok_account:      'tt',
+};
+
+
+const SHORT_TO_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(TYPE_SHORT).map(([full, short]) => [short, full])
+);
 
 function formatListingSnippet(l: any): string {
   switch (l.type) {
@@ -189,12 +204,12 @@ async function showCategoryPicker(phone: string): Promise<void> {
 
   // Build rows only for types that have stock
   const rows = activeCounts
-    .sort((a, b) => b.count - a.count) // most listings first
-    .map(({ _id: type, count }: { _id: string; count: number }) => ({
-      id:          `BROWSE ${type}`,
-      title:       `${CATEGORY_EMOJI[type] ?? '📦'} ${TYPE_LABELS[type] ?? type}`,
-      description: `${count} listing${count !== 1 ? 's' : ''} available`,
-    }));
+  .sort((a, b) => b.count - a.count)
+  .map(({ _id: type, count }: { _id: string; count: number }) => ({
+    id:          `BR_${TYPE_SHORT[type] ?? type}`,   // e.g. "BR_fbads" — well under 20 chars
+    title:       `${CATEGORY_EMOJI[type] ?? '📦'} ${TYPE_LABELS[type] ?? type}`,
+    description: `${count} listing${count !== 1 ? 's' : ''} available`,
+  }));
 
   return sendList(
     phone,
@@ -302,18 +317,16 @@ export async function handleListings(
   phone: string,
   text:  string
 ): Promise<void> {
-  // Step 3 — view single listing detail
   if (text.startsWith('VIEW ')) {
     const listingId = text.replace('VIEW ', '').trim();
     return showListingDetail(phone, listingId);
   }
 
-  // Step 2 — browse listings within a chosen category
-  if (text.startsWith('BROWSE ')) {
-    const type = text.replace('BROWSE ', '').trim().toLowerCase();
+  if (text.startsWith('BR_')) {
+    const short = text.replace('BR_', '').trim().toLowerCase();
+    const type  = SHORT_TO_TYPE[short] ?? short;
     return showCategoryListings(phone, type);
   }
 
-  // Step 1 — show category picker
   return showCategoryPicker(phone);
 }

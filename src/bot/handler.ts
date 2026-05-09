@@ -83,7 +83,7 @@ export async function handleIncoming(
   }
 
   // ── Browse listings ────────────────────────────────────────────────────────
-  if (upper === 'LISTINGS' || upper.startsWith('VIEW ') || upper.startsWith('BROWSE ')) {
+  if (upper === 'LISTINGS' || upper.startsWith('VIEW ') || upper.startsWith('BR_')) {
   return handleListings(phone, upper);
 }
 
