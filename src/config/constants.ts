@@ -10,10 +10,10 @@ export const LISTING_FEES: Record<string, number> = {
 };
 
 export const FEE_TIERS = [
-  { max: 30_000,     rate: 0.08 }, // 8%  — gift cards, low-value accounts
-  { max: 100_000,    rate: 0.07 }, // 7%  — mid-low, most common range
-  { max: 300_000,    rate: 0.06 }, // 6%  — mid-high accounts
-  { max: 700_000,    rate: 0.05 }, // 5%  — premium listings
+  { max: 100_000,     rate: 0.08 }, // 8%  — gift cards, low-value accounts
+  { max: 300_000,    rate: 0.07 }, // 7%  — mid-low, most common range
+  { max: 700_000,    rate: 0.06 }, // 6%  — mid-high accounts
+  { max: 1_500_000,    rate: 0.05 }, // 5%  — premium listings
   { max: Infinity,   rate: 0.04 }, // 4%  — high-value, retain big sellers
 ];
 
