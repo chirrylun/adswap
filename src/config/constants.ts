@@ -37,7 +37,7 @@ export const TYPE_LABELS: Record<string, string> = {
   google_ad_account:   'Google Ads',
   facebook_ad_account: 'Facebook/Meta Ads',
   adsense_site:        'AdSense Monetised Site',
-  play_console:        'Google Play Console',
+  play_console:        'Play Console',
   gift_card:           'Gift Card',
   twitter_account:     'Twitter / X',
   instagram_account:   'Instagram',

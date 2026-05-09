@@ -173,8 +173,7 @@ export async function handleListings(
       );
     }
 
-    listing.viewCount += 1;
-    await listing.save();
+    await Listing.updateOne({ _id: listing._id }, { $inc: { viewCount: 1 } });
 
     const ratingStr = listing.seller.totalSales > 0
       ? `⭐ ${listing.seller.sellerRating.toFixed(1)} · ${listing.seller.totalSales} sale${listing.seller.totalSales !== 1 ? 's' : ''}`
@@ -197,7 +196,7 @@ export async function handleListings(
         : '') +
 
       `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
-      `  💰  Price            *₦${listing.price.toLocaleString()}*\n` +
+      `  💰  Price            *₦${(listing.buyerPays || listing.price).toLocaleString()}*\n` +
       `  👤  Seller           ${ratingStr}\n` +
       `  👁  Views            ${listing.viewCount}\n` +
       `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
@@ -224,7 +223,7 @@ export async function handleListings(
 
   const rows = listings.map(l => ({
     id:          `VIEW ${l.listingId}`,
-    title:       `${TYPE_LABELS[l.type] ?? l.type}${l.isFeatured ? ' ⭐' : ''} ₦${l.price.toLocaleString()}`,
+    title: `${TYPE_LABELS[l.type] ?? l.type}${l.isFeatured ? ' ⭐' : ''} ₦${(l.buyerPays || l.price).toLocaleString()}`,
     description: formatListingSnippet(l).slice(0, 72),
   }));
 
