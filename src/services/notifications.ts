@@ -91,12 +91,14 @@ function buildListingBlurb(listing: any): string {
 export async function broadcastNewListing(listing: any): Promise<void> {
   // Fetch all non-banned users who haven't opted out of this type
   const users = await User.find({
-    isBanned:                      false,
-    'notifications.enabled':       true,
-    'notifications.optedOutTypes': { $nin: [listing.type] },
-    // Exclude the seller themselves
-    _id: { $ne: listing.seller },
-  }).select('phone').lean();
+  isBanned: false,
+  _id:      { $ne: listing.seller },
+  $or: [
+    { 'notifications.enabled': true,  'notifications.optedOutTypes': { $nin: [listing.type] } },
+    { 'notifications': { $exists: false } },  // legacy users with no prefs yet
+    { 'notifications.enabled': { $exists: false } },  // partial doc
+  ],
+}).select('phone').lean();
 
   if (!users.length) return;
 
