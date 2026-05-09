@@ -83,9 +83,9 @@ export async function handleIncoming(
   }
 
   // ── Browse listings ────────────────────────────────────────────────────────
-  if (upper === 'LISTINGS' || upper.startsWith('VIEW ')) {
-    return handleListings(phone, upper);
-  }
+  if (upper === 'LISTINGS' || upper.startsWith('VIEW ') || upper.startsWith('BROWSE ')) {
+  return handleListings(phone, upper);
+}
 
   // ── Buy flow ───────────────────────────────────────────────────────────────
   // Handles both LISTINGS (browse) and BUY [id] (initiate purchase).

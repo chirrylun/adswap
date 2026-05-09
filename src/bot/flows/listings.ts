@@ -1,6 +1,9 @@
-import { sendMessage, sendList } from '../../services/whatsapp';
+import { sendMessage, sendList, sendButtons } from '../../services/whatsapp';
 import { TYPE_LABELS } from '../../config/constants';
 import Listing from '../../models/Listing';
+import { ListingType } from '../../models/Listing';
+
+// ─── Snippet builders ─────────────────────────────────────────────────────────
 
 function formatListingSnippet(l: any): string {
   switch (l.type) {
@@ -12,7 +15,7 @@ function formatListingSnippet(l: any): string {
         l.accountCountry      && `· ${l.accountCountry}`,
         l.googleAdsSuspended  ? '⚠️ Suspended' : '✅ Clean',
       ].filter(Boolean).join('  ');
- 
+
     case 'facebook_ad_account':
       return [
         l.metaAccountAge    && `${l.metaAccountAge} old`,
@@ -21,7 +24,7 @@ function formatListingSnippet(l: any): string {
         l.metaRestricted    ? '⚠️ Restricted' : '✅ Clean',
         l.metaPixelAttached ? '· Pixel ✓' : null,
       ].filter(Boolean).join('  ');
- 
+
     case 'twitter_account':
       return [
         l.twitterFollowers && `${l.twitterFollowers} followers`,
@@ -30,7 +33,7 @@ function formatListingSnippet(l: any): string {
         l.twitterMonetized ? '💰 Monetized' : null,
         l.twitterSuspended ? '⚠️ Suspended' : '✅ Clean',
       ].filter(Boolean).join('  ');
- 
+
     case 'instagram_account':
       return [
         l.instagramFollowers && `${l.instagramFollowers} followers`,
@@ -39,7 +42,7 @@ function formatListingSnippet(l: any): string {
         l.instagramMonetized  ? '💰 Monetized' : null,
         l.instagramRestricted ? '⚠️ Restricted' : '✅ Clean',
       ].filter(Boolean).join('  ');
- 
+
     case 'tiktok_account':
       return [
         l.tiktokFollowers && `${l.tiktokFollowers} followers`,
@@ -49,7 +52,7 @@ function formatListingSnippet(l: any): string {
         l.tiktokLives     ? '🔴 LIVE ✓'   : null,
         l.tiktokBanned    ? '⚠️ Banned'   : '✅ Clean',
       ].filter(Boolean).join('  ');
- 
+
     case 'adsense_site':
       return [
         l.adsenseMonthlyEarnings && `$${l.adsenseMonthlyEarnings}/mo`,
@@ -57,7 +60,7 @@ function formatListingSnippet(l: any): string {
         l.accountCountry         && `· ${l.accountCountry}`,
         l.adsenseViolations      ? '⚠️ Violations' : '✅ Clean',
       ].filter(Boolean).join('  ');
- 
+
     case 'play_console':
       return [
         l.playConsoleApps    && `${l.playConsoleApps}`,
@@ -65,14 +68,14 @@ function formatListingSnippet(l: any): string {
         l.accountCountry     && `· ${l.accountCountry}`,
         l.playConsoleSuspended ? '⚠️ Suspended' : '✅ Clean',
       ].filter(Boolean).join('  ');
- 
+
     case 'gift_card':
       return [
         l.giftCardBrand    && l.giftCardBrand,
         l.giftCardValue    && `· ${l.giftCardValue}`,
         l.giftCardCurrency && `(${l.giftCardCurrency})`,
       ].filter(Boolean).join('  ');
- 
+
     default:
       return l.description?.slice(0, 72) ?? '';
   }
@@ -98,33 +101,33 @@ function formatFullDetails(l: any): string {
         `  🔒  Status           ${l.metaRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
       ].join('\n');
 
-      case 'twitter_account':
-  return [
-    `  👥  Followers         ${l.twitterFollowers ?? '—'}`,
-    `  📅  Age               ${l.twitterAge ?? '—'}`,
-    `  🏷️  Niche             ${l.twitterNiche ?? '—'}`,
-    `  💰  Monetized         ${l.twitterMonetized ? 'Yes ✓' : 'No'}`,
-    `  🔒  Status            ${l.twitterSuspended ? '⚠️ Was suspended' : '✅ Clean'}`,
-  ].join('\n');
+    case 'twitter_account':
+      return [
+        `  👥  Followers         ${l.twitterFollowers ?? '—'}`,
+        `  📅  Age               ${l.twitterAge ?? '—'}`,
+        `  🏷️  Niche             ${l.twitterNiche ?? '—'}`,
+        `  💰  Monetized         ${l.twitterMonetized ? 'Yes ✓' : 'No'}`,
+        `  🔒  Status            ${l.twitterSuspended ? '⚠️ Was suspended' : '✅ Clean'}`,
+      ].join('\n');
 
-case 'instagram_account':
-  return [
-    `  👥  Followers         ${l.instagramFollowers ?? '—'}`,
-    `  📅  Age               ${l.instagramAge ?? '—'}`,
-    `  🏷️  Niche             ${l.instagramNiche ?? '—'}`,
-    `  💰  Monetized         ${l.instagramMonetized  ? 'Yes ✓' : 'No'}`,
-    `  🔒  Status            ${l.instagramRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
-  ].join('\n');
+    case 'instagram_account':
+      return [
+        `  👥  Followers         ${l.instagramFollowers ?? '—'}`,
+        `  📅  Age               ${l.instagramAge ?? '—'}`,
+        `  🏷️  Niche             ${l.instagramNiche ?? '—'}`,
+        `  💰  Monetized         ${l.instagramMonetized  ? 'Yes ✓' : 'No'}`,
+        `  🔒  Status            ${l.instagramRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
+      ].join('\n');
 
-case 'tiktok_account':
-  return [
-    `  👥  Followers         ${l.tiktokFollowers ?? '—'}`,
-    `  📅  Age               ${l.tiktokAge ?? '—'}`,
-    `  🏷️  Niche             ${l.tiktokNiche ?? '—'}`,
-    `  💰  Monetized         ${l.tiktokMonetized ? 'Yes ✓' : 'No'}`,
-    `  🔴  LIVE Access       ${l.tiktokLives    ? 'Yes ✓' : 'No'}`,
-    `  🔒  Status            ${l.tiktokBanned   ? '⚠️ Was banned' : '✅ Clean'}`,
-  ].join('\n');
+    case 'tiktok_account':
+      return [
+        `  👥  Followers         ${l.tiktokFollowers ?? '—'}`,
+        `  📅  Age               ${l.tiktokAge ?? '—'}`,
+        `  🏷️  Niche             ${l.tiktokNiche ?? '—'}`,
+        `  💰  Monetized         ${l.tiktokMonetized ? 'Yes ✓' : 'No'}`,
+        `  🔴  LIVE Access       ${l.tiktokLives    ? 'Yes ✓' : 'No'}`,
+        `  🔒  Status            ${l.tiktokBanned   ? '⚠️ Was banned' : '✅ Clean'}`,
+      ].join('\n');
 
     case 'adsense_site':
       return [
@@ -155,87 +158,162 @@ case 'tiktok_account':
   }
 }
 
-export async function handleListings(
-  phone: string,
-  text:  string
-): Promise<void> {
+// ─── Category emoji map ───────────────────────────────────────────────────────
 
-  // ── View single listing ────────────────────────────────────────────────────
-  if (text.startsWith('VIEW ')) {
-    const listingId = text.replace('VIEW ', '').trim();
-    const listing   = await Listing.findOne({ listingId, status: 'active' })
-      .populate<{ seller: any }>('seller');
+const CATEGORY_EMOJI: Record<string, string> = {
+  google_ad_account:   '🎯',
+  facebook_ad_account: '📘',
+  adsense_site:        '💵',
+  play_console:        '📱',
+  gift_card:           '🎁',
+  twitter_account:     '🐦',
+  instagram_account:   '📸',
+  tiktok_account:      '🎵',
+};
 
-    if (!listing) {
-      return sendMessage(phone,
-        '❌ Listing not found or no longer available.\n\n' +
-        'Type *LISTINGS* to browse active ones.'
-      );
-    }
+// ─── Step 1: Category picker ──────────────────────────────────────────────────
 
-    await Listing.updateOne({ _id: listing._id }, { $inc: { viewCount: 1 } });
+async function showCategoryPicker(phone: string): Promise<void> {
+  // Only show categories that actually have active listings
+  const activeCounts = await Listing.aggregate([
+    { $match: { status: 'active' } },
+    { $group: { _id: '$type', count: { $sum: 1 } } },
+  ]);
 
-    const ratingStr = listing.seller.totalSales > 0
-      ? `⭐ ${listing.seller.sellerRating.toFixed(1)} · ${listing.seller.totalSales} sale${listing.seller.totalSales !== 1 ? 's' : ''}`
-      : '🆕 New seller';
-
-    const details = formatFullDetails(listing);
-    const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
-
-    return sendMessage(phone,
-      `${listing.isFeatured ? '⭐ *FEATURED*\n' : ''}` +
-      `*${typeLabel}*\n` +
-      `_${listingId}_\n` +
-      `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
-
-      `*Account Details*\n` +
-      `${details}\n\n` +
-
-      (listing.description
-        ? `*About this listing*\n  ${listing.description}\n\n`
-        : '') +
-
-      `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
-      `  💰  Price            *₦${(listing.buyerPays || listing.price).toLocaleString()}*\n` +
-      `  👤  Seller           ${ratingStr}\n` +
-      `  👁  Views            ${listing.viewCount}\n` +
-      `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
-
-      `🔒 *Escrow protected — your money is safe*\n\n` +
-      `To purchase, copy and send:\n` +
-      `\`BUY ${listing.listingId}\`\n\n` +
-      `Type *LISTINGS* to see more.`
-    );
-  }
-
-  // ── Browse all listings ────────────────────────────────────────────────────
-  const listings = await Listing.find({ status: 'active' })
-    .populate('seller')
-    .sort({ isFeatured: -1, createdAt: -1 })
-    .limit(10);
-
-  if (!listings.length) {
+  if (!activeCounts.length) {
     return sendMessage(phone,
       `📭 *No active listings right now.*\n\n` +
       `Check back later or type *SELL* to list your own account.`
     );
   }
 
+  // Build rows only for types that have stock
+  const rows = activeCounts
+    .sort((a, b) => b.count - a.count) // most listings first
+    .map(({ _id: type, count }: { _id: string; count: number }) => ({
+      id:          `BROWSE ${type}`,
+      title:       `${CATEGORY_EMOJI[type] ?? '📦'} ${TYPE_LABELS[type] ?? type}`,
+      description: `${count} listing${count !== 1 ? 's' : ''} available`,
+    }));
+
+  return sendList(
+    phone,
+    `*AdSwap Marketplace* 🛍️\n\n` +
+    `Browse by category below.\n` +
+    `All listings are verified before going live.\n\n` +
+    `🔒 Every transaction is escrow-protected.`,
+    'Choose Category',
+    [{ title: 'Categories', rows }],
+  );
+}
+
+// ─── Step 2: Listings within a category ──────────────────────────────────────
+
+async function showCategoryListings(phone: string, type: string): Promise<void> {
+  const label = TYPE_LABELS[type];
+  if (!label) {
+    return sendMessage(phone,
+      `❌ Unknown category.\n\nType *LISTINGS* to browse categories.`
+    );
+  }
+
+  const listings = await Listing.find({ status: 'active', type: type as ListingType })
+    .populate('seller')
+    .sort({ isFeatured: -1, createdAt: -1 })
+    .limit(10);
+
+  if (!listings.length) {
+    return sendMessage(phone,
+      `📭 No active *${label}* listings right now.\n\n` +
+      `Type *LISTINGS* to browse other categories.`
+    );
+  }
+
   const rows = listings.map(l => ({
     id:          `VIEW ${l.listingId}`,
-    title: `${TYPE_LABELS[l.type] ?? l.type}${l.isFeatured ? ' ⭐' : ''} ₦${(l.buyerPays || l.price).toLocaleString()}`,
+    title:       `${l.isFeatured ? '⭐ ' : ''}₦${(l.buyerPays || l.price).toLocaleString()}`,
     description: formatListingSnippet(l).slice(0, 72),
   }));
 
   return sendList(
     phone,
-    `*AdSwap Verified Listings* 📋\n\n` +
-    `${listings.length} account${listings.length > 1 ? 's' : ''} available right now.\n\n` +
-    `All listings are manually reviewed before going live.\n` +
-    `Tap any listing to view full details:`,
-    'Browse Listings',
-    [{ title: 'Available Now', rows }],
+    `${CATEGORY_EMOJI[type] ?? '📦'} *${label}*\n\n` +
+    `${listings.length} listing${listings.length !== 1 ? 's' : ''} available.\n` +
+    `Tap any listing to view full details and buy:\n\n` +
+    `_(Type *LISTINGS* to go back to categories)_`,
+    'View Listings',
+    [{ title: `${label} — Available Now`, rows }],
     undefined,
     '🔒 Every transaction is escrow-protected.'
   );
+}
+
+// ─── Step 3: Single listing detail ───────────────────────────────────────────
+
+async function showListingDetail(phone: string, listingId: string): Promise<void> {
+  const listing = await Listing.findOne({ listingId, status: 'active' })
+    .populate<{ seller: any }>('seller');
+
+  if (!listing) {
+    return sendMessage(phone,
+      '❌ Listing not found or no longer available.\n\n' +
+      'Type *LISTINGS* to browse categories.'
+    );
+  }
+
+  await Listing.updateOne({ _id: listing._id }, { $inc: { viewCount: 1 } });
+
+  const ratingStr = listing.seller.totalSales > 0
+    ? `⭐ ${listing.seller.sellerRating.toFixed(1)} · ${listing.seller.totalSales} sale${listing.seller.totalSales !== 1 ? 's' : ''}`
+    : '🆕 New seller';
+
+  const details   = formatFullDetails(listing);
+  const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
+
+  return sendMessage(phone,
+    `${listing.isFeatured ? '⭐ *FEATURED*\n' : ''}` +
+    `*${typeLabel}*\n` +
+    `_${listingId}_\n` +
+    `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
+
+    `*Account Details*\n` +
+    `${details}\n\n` +
+
+    (listing.description
+      ? `*About this listing*\n  ${listing.description}\n\n`
+      : '') +
+
+    `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
+    `  💰  Price            *₦${(listing.buyerPays || listing.price).toLocaleString()}*\n` +
+    `  👤  Seller           ${ratingStr}\n` +
+    `  👁  Views            ${listing.viewCount + 1}\n` +
+    `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
+
+    `🔒 *Escrow protected — your money is safe*\n\n` +
+    `To purchase, copy and send:\n` +
+    `\`BUY ${listing.listingId}\`\n\n` +
+    `_(Type *LISTINGS* to browse more)_`
+  );
+}
+
+// ─── Main handler ─────────────────────────────────────────────────────────────
+
+export async function handleListings(
+  phone: string,
+  text:  string
+): Promise<void> {
+  // Step 3 — view single listing detail
+  if (text.startsWith('VIEW ')) {
+    const listingId = text.replace('VIEW ', '').trim();
+    return showListingDetail(phone, listingId);
+  }
+
+  // Step 2 — browse listings within a chosen category
+  if (text.startsWith('BROWSE ')) {
+    const type = text.replace('BROWSE ', '').trim().toLowerCase();
+    return showCategoryListings(phone, type);
+  }
+
+  // Step 1 — show category picker
+  return showCategoryPicker(phone);
 }
