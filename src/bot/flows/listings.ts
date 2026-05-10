@@ -217,7 +217,7 @@ async function showCategoryPicker(phone: string): Promise<void> {
 
   return sendList(
     phone,
-    `*AdSwap Marketplace* 🛍️\n\n` +
+    `*Swappa Marketplace* 🛍️\n\n` +
     `Browse by category below.\n` +
     `All listings are verified before going live.\n\n` +
     `🔒 Every transaction is escrow-protected.`,

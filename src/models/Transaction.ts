@@ -15,7 +15,7 @@ export interface ITransaction extends Document {
 
   // ── Amounts ───────────────────────────────────────────────────────────────
   amount:          number;   // what the buyer pays (seller price + fee)
-  platformFee:     number;   // AdSwap's cut (added on top, not deducted)
+  platformFee:     number;   // Swappa's cut (added on top, not deducted)
   sellerReceives:  number;   // seller's full asking price
 
   // ── Status ────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ const TransactionSchema = new Schema<ITransaction>(
     seller:         { type: Schema.Types.ObjectId, ref: 'User',    required: true, index: true },
 
     amount:         { type: Number, required: true },   // buyer's total payment
-    platformFee:    { type: Number, required: true },   // AdSwap fee
+    platformFee:    { type: Number, required: true },   // Swappa fee
     sellerReceives: { type: Number, required: true },   // seller's payout amount
 
     status:         { type: String, enum: ['pending', 'completed', 'cancelled'], default: 'pending', index: true },

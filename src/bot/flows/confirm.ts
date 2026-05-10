@@ -85,7 +85,7 @@ export async function handleBuyerConfirm(
     `Please rate your experience:\n` +
     `Reply: *RATE ${txnId} [1-5]*\n\n` +
     `Example: *RATE ${txnId} 5*\n\n` +
-    `Thank you for using AdSwap! 🙏`,
+    `Thank you for using Swappa! 🙏`,
   );
 
   // ── Notify seller ──────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ export async function handleBuyerConfirm(
     `Funds will be sent to:\n` +
     `🏦 ${txn.seller.bankName} — ${txn.seller.bankAccountNumber}\n\n` +
     `Allow 1–2 business days for settlement.\n\n` +
-    `Thank you for selling on AdSwap! 🙏`,
+    `Thank you for selling on Swappa! 🙏`,
   ).catch(() => {});
 }
 

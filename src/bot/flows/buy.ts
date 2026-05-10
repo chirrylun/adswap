@@ -43,7 +43,7 @@ function buildEscrowBriefing(
     `🏪 *Seller:* ${sellerPhone}\n\n` +
     `─────── PAYMENT BREAKDOWN ───────\n` +
     `💳 Buyer pays:      ₦${price.toLocaleString()}\n` +
-    `➖ AdSwap fee:       ₦${fee.toLocaleString()}\n` +
+    `➖ Swappa fee:       ₦${fee.toLocaleString()}\n` +
     `━━━━━━━━━━━━━━━━━━━━━\n` +
     `💸 Seller receives: ₦${sellerReceives.toLocaleString()}\n\n` +
     `─────── ESCROW TERMS ───────\n` +
@@ -241,7 +241,7 @@ export async function handleBuy(
         `🎉 *Someone wants to buy your listing!*\n\n` +
           `Asset: *${typeLabel}*\n` +
           `Listing: *${listingId}*\n` +
-          `You will receive: *₦${sellerReceives.toLocaleString()}* _(after AdSwap fee)_\n\n` +
+          `You will receive: *₦${sellerReceives.toLocaleString()}* _(after Swappa's fee)_\n\n` +
           `🔒 The transaction will be handled through *Koji Agudah escrow* — your payment is protected.\n\n` +
           `Our team will contact both parties shortly to initiate the escrow payment.\n\n` +
           `Transaction ref: *${transactionId}*\n\n` +

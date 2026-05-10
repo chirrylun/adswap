@@ -4,14 +4,13 @@ import jwt    from 'jsonwebtoken';
 import { adminAuth, AdminRequest } from '../middleware/auth';
 import { adminLimiter, loginLimiter } from '../middleware/rateLimiter';
 import { sendMessage } from '../services/whatsapp';
-/*
-import { createEscrowPaymentLink, transferToSeller } from '../services/flutterwave';
-*/
 import { broadcastNewListing } from '../services/notifications';
-import Listing     from '../models/Listing';
-import Transaction from '../models/Transaction';
-import Dispute     from '../models/Dispute';
-import User        from '../models/User';
+import Listing          from '../models/Listing';
+import Transaction      from '../models/Transaction';
+import Dispute          from '../models/Dispute';
+import User             from '../models/User';
+import BuyRequest       from '../models/Request';   // aliased — avoids clash with Express Request
+import { TYPE_LABELS }  from '../config/constants';
 
 const router = Router();
 
@@ -41,7 +40,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
   const [
     totalUsers, totalListings, activeListings, pendingVerification,
-    totalTransactions, completedTransactions, openDisputes,
+    totalTransactions, completedTransactions, pendingTransactions, openDisputes,
     revenue,
   ] = await Promise.all([
     User.countDocuments(),
@@ -50,6 +49,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
     Listing.countDocuments({ status: 'pending_verification' }),
     Transaction.countDocuments(),
     Transaction.countDocuments({ status: 'completed' }),
+    Transaction.countDocuments({ status: 'pending' }),
     Dispute.countDocuments({ status: 'open' }),
     Transaction.aggregate([
       { $match: { status: 'completed' } },
@@ -60,7 +60,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
   res.json({
     users:        { total: totalUsers },
     listings:     { total: totalListings, active: activeListings, pendingVerification },
-    transactions: { total: totalTransactions, completed: completedTransactions},
+    transactions: { total: totalTransactions, completed: completedTransactions, pending: pendingTransactions },
     disputes:     { open: openDisputes },
     revenue:      { total: revenue[0]?.total || 0 },
   });
@@ -81,26 +81,44 @@ router.get('/listings', adminAuth, async (req: AdminRequest, res: Response) => {
   res.json({ listings, total, page: +page, pages: Math.ceil(total / +limit) });
 });
 
-// When a listing is approved, generate a Flutterwave payment link and store it.
-// Buyers will use this link when they trigger BUY.
 router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: Response) => {
   const listing = await Listing.findById(req.params.id)
     .populate<{ seller: any }>('seller');
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-  // Use updateOne to avoid re-validating fields not being changed
   await Listing.updateOne({ _id: listing._id }, { $set: { status: 'active' } });
 
   await sendMessage(listing.seller.phone,
     `✅ *Listing Verified!*\n\n` +
     `Listing: *${listing.listingId}*\n\n` +
-    `🟢 Your listing is now *LIVE* and visible to buyers!`
-  );
+    `🟢 Your listing is now *LIVE* and visible to buyers!\n\n` +
+    `🔒 When a buyer is ready, payment will be arranged through *Koji Agudah escrow* — you'll receive your full asking price once the deal is confirmed.`,
+  ).catch(() => {});
 
   broadcastNewListing(listing).catch(err =>
-    console.error('[NOTIFY] Broadcast error:', err)
+    console.error('[NOTIFY] Broadcast error:', err),
   );
+
+  // Notify requester if there's a matching open request
+  const linkedReq = await BuyRequest.findOne({
+    type:        listing.type,
+    status:      'open',
+    respondents: listing.seller,
+  }).populate<{ requester: any }>('requester');
+
+  if (linkedReq) {
+    const label = TYPE_LABELS[listing.type] ?? listing.type;
+    await sendMessage(linkedReq.requester.phone,
+      `🟢 *Listing is now LIVE!*\n\n` +
+      `A seller responded to your *${label}* request (${linkedReq.requestId}) and their listing has been verified.\n\n` +
+      `View it here:\n` +
+      `\`VIEW ${listing.listingId}\`\n\n` +
+      `🔒 Ready to buy? Your payment will be protected by *Koji Agudah escrow*.`,
+    ).catch(() => {});
+
+    await BuyRequest.updateOne({ _id: linkedReq._id }, { $set: { status: 'filled' } });
+  }
 
   res.json({ success: true, status: 'active' });
 });
@@ -113,15 +131,17 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
+  const rejectionReason = reason || 'Screenshots insufficient or unclear';
+
   await Listing.updateOne(
-  { _id: listing._id },
-  { $set: { status: 'rejected', rejectionReason: reason || 'Screenshots insufficient or unclear' } }
-);
+    { _id: listing._id },
+    { $set: { status: 'rejected', rejectionReason } },
+  );
 
   await sendMessage(listing.seller.phone,
     `❌ *Listing Rejected*\n\n` +
     `Listing: ${listing.listingId}\n` +
-    `Reason: ${listing.rejectionReason}\n\n` +
+    `Reason: ${rejectionReason}\n\n` +
     `Please resubmit with clearer screenshots.\n` +
     `Type *SELL* to start a new listing.`,
   ).catch(() => {});
@@ -129,76 +149,121 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
   res.json({ success: true });
 });
 
-// ── Payout release ────────────────────────────────────────────────────────────
-/*
-// Called manually from dashboard or via WhatsApp PAYOUT command.
-router.post('/transactions/:id/release', adminAuth, async (req: AdminRequest, res: Response) => {
-  const txn = await Transaction.findOne({
-    $or: [{ _id: req.params.id }, { transactionId: req.params.id }],
-    status: 'pending_release',
-  }).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
+// ── Transactions ──────────────────────────────────────────────────────────────
 
-  if (!txn) return res.status(404).json({ error: 'Transaction not found or not ready for release' });
-
-  try {
-    await transferToSeller(txn as any);
-
-    txn.status      = 'completed';
-    txn.completedAt = new Date();
-    await txn.save();
-
-    await sendMessage(txn.seller.phone,
-      `💸 *Payment Sent!*\n\n` +
-      `Transaction: ${txn.transactionId}\n` +
-      `Amount: ₦${txn.sellerReceives?.toLocaleString()}\n` +
-      `Bank: ${txn.seller.bankName} — ${txn.seller.bankAccountNumber}\n\n` +
-      `Transfer is on its way. Check your account shortly.`,
-    ).catch(() => {});
-
-    res.json({ success: true, transactionId: txn.transactionId });
-  } catch (err: any) {
-    console.error('[Admin] Release failed:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-*/
-
-// ── All transactions (paginated + filterable) ─────────────────────────────────
 router.get('/transactions', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status, page = 1, limit = 20 } = req.query;
   const filter: any = status && status !== 'all' ? { status } : {};
 
   const [transactions, total] = await Promise.all([
     Transaction.find(filter)
-      .populate('buyer',  'phone')
-      .populate('seller', 'phone bankName bankAccountNumber bankAccountName')
+      .populate('buyer',   'phone')
+      .populate('seller',  'phone')
+      .populate('listing', 'listingId type')
       .sort({ createdAt: -1 })
       .skip((+page - 1) * +limit)
       .limit(+limit),
     Transaction.countDocuments(filter),
   ]);
 
-  res.json({
-    transactions,
-    total,
-    page:  +page,
-    pages: Math.ceil(total / +limit),
+  res.json({ transactions, total, page: +page, pages: Math.ceil(total / +limit) });
+});
+
+router.get('/transactions/:id', adminAuth, async (req: AdminRequest, res: Response) => {
+  const txn = await Transaction.findOne({
+    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
+  })
+    .populate('buyer',   'phone')
+    .populate('seller',  'phone')
+    .populate('listing', 'listingId type price');
+
+  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+  res.json({ transaction: txn });
+});
+
+// Mark a transaction as completed (payout confirmed via Koji Agudah escrow)
+router.post('/transactions/:id/complete', adminAuth, async (req: AdminRequest, res: Response) => {
+  const { adminNote } = req.body;
+
+  const txn = await Transaction.findOne({
+    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
+    status: 'pending',
+  }).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
+
+  if (!txn) return res.status(404).json({ error: 'Transaction not found or not in pending status' });
+
+  txn.status      = 'completed';
+  txn.completedAt = new Date();
+  if (adminNote) txn.adminNote = adminNote;
+  await txn.save();
+
+  await sendMessage(txn.seller.phone,
+    `💸 *Payment Released!*\n\n` +
+    `Transaction: ${txn.transactionId}\n` +
+    `Amount: ₦${txn.sellerReceives?.toLocaleString()}\n\n` +
+    `Your payment has been sent via Koji Agudah escrow. Please check your account.\n\n` +
+    `Thank you for selling on AdSwap! 🎉`,
+  ).catch(() => {});
+
+  await sendMessage(txn.buyer.phone,
+    `✅ *Transaction Completed*\n\n` +
+    `Transaction: ${txn.transactionId}\n\n` +
+    `Your deal is complete. Enjoy your new account!\n\n` +
+    `Any concerns? Type *HELP*`,
+  ).catch(() => {});
+
+  res.json({ success: true, transactionId: txn.transactionId, status: 'completed' });
+});
+
+// Mark a transaction as cancelled (deal fell through, no payment, etc.)
+router.post('/transactions/:id/cancel', adminAuth, async (req: AdminRequest, res: Response) => {
+  const { adminNote } = req.body;
+
+  const txn = await Transaction.findOne({
+    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
+    status: 'pending',
+  }).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
+
+  if (!txn) return res.status(404).json({ error: 'Transaction not found or not in pending status' });
+
+  txn.status      = 'cancelled';
+  txn.cancelledAt = new Date();
+  if (adminNote) txn.adminNote = adminNote;
+  await txn.save();
+
+  await sendMessage(txn.buyer.phone,
+    `❌ *Transaction Cancelled*\n\n` +
+    `Transaction: ${txn.transactionId}\n\n` +
+    `This deal has been cancelled. If you paid into escrow, our team will arrange your refund.\n\n` +
+    `Type *LISTINGS* to browse other deals or *HELP* for support.`,
+  ).catch(() => {});
+
+  await sendMessage(txn.seller.phone,
+    `❌ *Transaction Cancelled*\n\n` +
+    `Transaction: ${txn.transactionId}\n\n` +
+    `This deal has been cancelled. Your listing may still be active — type *LISTINGS* to check.\n\n` +
+    `Questions? Type *HELP*`,
+  ).catch(() => {});
+
+  res.json({ success: true, transactionId: txn.transactionId, status: 'cancelled' });
+});
+
+// Reopen a cancelled transaction if needed
+router.post('/transactions/:id/reopen', adminAuth, async (req: AdminRequest, res: Response) => {
+  const txn = await Transaction.findOne({
+    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
+    status: 'cancelled',
   });
+
+  if (!txn) return res.status(404).json({ error: 'Transaction not found or not cancelled' });
+
+  txn.status      = 'pending';
+  txn.cancelledAt = undefined;
+  if (req.body.adminNote) txn.adminNote = req.body.adminNote;
+  await txn.save();
+
+  res.json({ success: true, transactionId: txn.transactionId, status: 'pending' });
 });
-
-// Pending release queue — for the dashboard payout list
-/*
-router.get('/transactions/pending-release', adminAuth, async (_req: AdminRequest, res: Response) => {
-  const txns = await Transaction.find({ status: 'pending_release' })
-    .populate('seller', 'phone bankName bankAccountNumber bankAccountName')
-    .populate('buyer',  'phone')
-    .sort({ releaseAt: 1 });
-
-  res.json({ transactions: txns });
-});
-*/
-
 
 // ── Disputes ──────────────────────────────────────────────────────────────────
 router.get('/disputes', adminAuth, async (req: AdminRequest, res: Response) => {
@@ -233,15 +298,19 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
   await dispute.save();
 
   if (decision === 'buyer') {
-    // Refund buyer — mark for manual refund (FW refunds via dashboard or API)
-    txn.status     = 'refunded';
-    txn.refundedAt = new Date();
-    txn.escrowHeld = false;
+    // Resolved in buyer's favour — cancel transaction, arrange refund via escrow
+    txn.status      = 'cancelled';
+    txn.cancelledAt = new Date();
+    txn.adminNote   = `Dispute resolved in buyer's favour: ${resolution}`;
     await txn.save();
 
     await sendMessage(
-      process.env.SUPPORT_PHONE!,
-      `🔔 *Refund Required*\n\nTXN: ${txn.transactionId}\nAmount: ₦${txn.amount?.toLocaleString()}\nFW Ref: ${txn.flutterwaveRef}\n\nProcess refund via Flutterwave dashboard.`,
+      process.env.PAYMENT_PHONE!,
+      `🔔 *Dispute Resolved — Refund Required*\n\n` +
+      `TXN: ${txn.transactionId}\n` +
+      `Amount to refund: ₦${txn.amount?.toLocaleString()}\n\n` +
+      `Resolution: ${resolution}\n\n` +
+      `Process refund to buyer via Koji Agudah escrow dashboard.`,
     ).catch(() => {});
 
     const buyer = await User.findById(txn.buyer);
@@ -249,7 +318,7 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
       await sendMessage(buyer.phone,
         `✅ *Dispute Resolved in Your Favour*\n\n` +
         `Transaction: ${txn.transactionId}\n` +
-        `₦${txn.amount?.toLocaleString()} will be refunded within 3–5 business days.\n\n` +
+        `₦${txn.amount?.toLocaleString()} will be refunded to you via escrow.\n\n` +
         `Resolution: ${resolution}`,
       ).catch(() => {});
     }
@@ -258,20 +327,25 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
     if (seller) {
       await sendMessage(seller.phone,
         `❌ *Dispute Resolved — Buyer Refunded*\n\n` +
-        `Transaction: ${txn.transactionId}\nResolution: ${resolution}\n\n` +
+        `Transaction: ${txn.transactionId}\n` +
+        `Resolution: ${resolution}\n\n` +
         `Contact support if you believe this is incorrect: ${process.env.SUPPORT_PHONE}`,
       ).catch(() => {});
     }
   } else {
-    // Release to seller
-    txn.status    = 'pending_release';
-    txn.releaseAt = new Date();
+    // Resolved in seller's favour — complete transaction, release via escrow
+    txn.status      = 'completed';
+    txn.completedAt = new Date();
+    txn.adminNote   = `Dispute resolved in seller's favour: ${resolution}`;
     await txn.save();
 
-    // Re-use the release endpoint logic by notifying admin
     await sendMessage(
-      process.env.SUPPORT_PHONE!,
-      `✅ *Dispute Resolved — Release to Seller*\n\nTXN: ${txn.transactionId}\nProcess payout via: POST /admin/transactions/${txn.transactionId}/release`,
+      process.env.PAYMENT_PHONE!,
+      `✅ *Dispute Resolved — Release to Seller*\n\n` +
+      `TXN: ${txn.transactionId}\n` +
+      `Amount: ₦${txn.sellerReceives?.toLocaleString()}\n\n` +
+      `Resolution: ${resolution}\n\n` +
+      `Process payout to seller via Koji Agudah escrow dashboard.`,
     ).catch(() => {});
 
     const seller = await User.findById(txn.seller);
@@ -288,9 +362,9 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
   res.json({ success: true, status: dispute.status });
 });
 
+// ── Users ─────────────────────────────────────────────────────────────────────
 router.get('/users', adminAuth, async (req: AdminRequest, res: Response) => {
   const { page = 1, limit = 20, search } = req.query;
-
   const filter: any = {};
   if (search) {
     filter.$or = [
@@ -308,15 +382,13 @@ router.get('/users', adminAuth, async (req: AdminRequest, res: Response) => {
     User.countDocuments(filter),
   ]);
 
-  // Attach active listing count to each user
-  const userIds = users.map(u => u._id);
+  const userIds       = users.map(u => u._id);
   const listingCounts = await Listing.aggregate([
     { $match: { seller: { $in: userIds }, status: 'active' } },
     { $group: { _id: '$seller', count: { $sum: 1 } } },
   ]);
-
   const countMap = Object.fromEntries(
-    listingCounts.map(l => [l._id.toString(), l.count])
+    listingCounts.map(l => [l._id.toString(), l.count]),
   );
 
   const enriched = users.map(u => ({
@@ -327,7 +399,6 @@ router.get('/users', adminAuth, async (req: AdminRequest, res: Response) => {
   res.json({ users: enriched, total, page: +page, pages: Math.ceil(total / +limit) });
 });
 
-// ── Users ─────────────────────────────────────────────────────────────────────
 router.post('/users/:phone/ban', adminAuth, async (req: AdminRequest, res: Response) => {
   const { reason } = req.body;
   await User.findOneAndUpdate(
