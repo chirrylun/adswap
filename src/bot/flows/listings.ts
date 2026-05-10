@@ -43,9 +43,7 @@ export function listingDetailCTA(listingId: string, price: number): string {
     `💳 *Buy at full price:*\n` +
     `\`BUY ${listingId}\`\n\n` +
     `💬 *Make an offer (2 steps):*\n` +
-    `1️⃣ Send: \`OFFER ${listingId}\`\n` +
-    `2️⃣ You'll be asked to enter your amount\n` +
-    `   _e.g._ *${Math.round(price * 0.85).toLocaleString()}*\n\n` +
+    `\`OFFER ${listingId}\`\n\n` +
     `_(Type *LISTINGS* to go back to categories)_`
   );
 }
