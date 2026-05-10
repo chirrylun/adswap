@@ -42,7 +42,7 @@ export function listingDetailCTA(listingId: string, price: number): string {
     `─── Buy or Make an Offer ───\n\n` +
     `💳 *Buy at full price:*\n` +
     `\`BUY ${listingId}\`\n\n` +
-    `💬 *Make an offer (2 steps):*\n` +
+    `💬 *Make an offer*\n` +
     `\`OFFER ${listingId}\`\n\n` +
     `_(Type *LISTINGS* to go back to categories)_`
   );
