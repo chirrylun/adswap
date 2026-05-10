@@ -101,24 +101,25 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
   );
 
   // Notify requester if there's a matching open request
-  const linkedReq = await BuyRequest.findOne({
-    type:        listing.type,
-    status:      'open',
-    respondents: listing.seller,
-  }).populate<{ requester: any }>('requester');
+  const linkedReq = await Request.findOne({
+  type:        listing.type,
+  status:      'open',
+  respondents: listing.seller,
+}).populate<{ requester: any }>('requester');
 
-  if (linkedReq) {
-    const label = TYPE_LABELS[listing.type] ?? listing.type;
-    await sendMessage(linkedReq.requester.phone,
-      `🟢 *Listing is now LIVE!*\n\n` +
-      `A seller responded to your *${label}* request (${linkedReq.requestId}) and their listing has been verified.\n\n` +
-      `View it here:\n` +
-      `\`VIEW ${listing.listingId}\`\n\n` +
-      `🔒 Ready to buy? Your payment will be protected by *Koji Agudah escrow*.`,
-    ).catch(() => {});
+if (linkedReq) {
+  const label = TYPE_LABELS[listing.type] ?? listing.type;
+  await sendMessage(linkedReq.requester.phone,
+    `🟢 *Good news! A seller responded to your request*\n\n` +
+    `You requested a *${label}* (Ref: ${linkedReq.requestId}).\n\n` +
+    `A seller has listed a verified asset that matches:\n\n` +
+    `\`VIEW ${listing.listingId}\`\n\n` +
+    `🔒 Ready to buy? Your payment will be protected by *Koji Agudah escrow*.\n\n` +
+    `Type *LISTINGS* to browse all available listings.`
+  ).catch(() => {});
 
-    await BuyRequest.updateOne({ _id: linkedReq._id }, { $set: { status: 'filled' } });
-  }
+  await Request.updateOne({ _id: linkedReq._id }, { $set: { status: 'filled' } });
+}
 
   res.json({ success: true, status: 'active' });
 });
