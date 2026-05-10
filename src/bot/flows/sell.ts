@@ -679,7 +679,7 @@ export async function handleSell(
           `Enter numbers only — no commas or symbols.\n` +
           `Example: *75000*\n\n` +
           `Minimum: ₦1,000\n\n` +
-          `💡 You will receive this *full amount* minus AdSwap's service fee.\n\n` +
+          `💡 You will receive this *full amount* minus Swappa's service fee.\n\n` +
           `Type *CANCEL* to exit.`,
       );
     }

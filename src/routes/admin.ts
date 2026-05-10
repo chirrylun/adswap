@@ -101,7 +101,7 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
   );
 
   // Notify requester if there's a matching open request
-  const linkedReq = await Request.findOne({
+  const linkedReq = await BuyRequest.findOne({
   type:        listing.type,
   status:      'open',
   respondents: listing.seller,
@@ -118,7 +118,7 @@ if (linkedReq) {
     `Type *LISTINGS* to browse all available listings.`
   ).catch(() => {});
 
-  await Request.updateOne({ _id: linkedReq._id }, { $set: { status: 'filled' } });
+  await BuyRequest.updateOne({ _id: linkedReq._id }, { $set: { status: 'filled' } });
 }
 
   res.json({ success: true, status: 'active' });
