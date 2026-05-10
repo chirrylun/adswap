@@ -34,6 +34,21 @@ const CATEGORY_EMOJI: Record<string, string> = {
   tiktok_account:      '🎵',
 };
 
+// ─── CTA builder ──────────────────────────────────────────────────────────────
+
+export function listingDetailCTA(listingId: string, price: number): string {
+  return (
+    `🔒 *Escrow protected — your money is safe*\n\n` +
+    `─── Buy or Make an Offer ───\n` +
+    `Buy at full price:\n` +
+    `\`BUY ${listingId}\`\n\n` +
+    `Make an offer (enter your price):\n` +
+    `\`OFFER ${listingId} [amount]\`\n` +
+    `_e.g._ \`OFFER ${listingId} ${Math.round(price * 0.85).toLocaleString()}\`\n\n` +
+    `_(Type *LISTINGS* to go back to categories)_`
+  );
+}
+
 // ─── Snippet builders ─────────────────────────────────────────────────────────
 
 function formatListingSnippet(l: any): string {
@@ -252,23 +267,23 @@ async function showCategoryListings(phone: string, rawShort: string): Promise<vo
     );
   }
 
- const rows = listings.map(l => ({
-  id:          `VIEW ${l.listingId}`,
-  title:       `${l.isFeatured ? '⭐ ' : ''}₦${(l.buyerPays || l.price).toLocaleString()}`,
-  description: formatListingSnippet(l).slice(0, 72),
-}));
+  const rows = listings.map(l => ({
+    id:          `VIEW ${l.listingId}`,
+    title:       `${l.isFeatured ? '⭐ ' : ''}₦${(l.buyerPays || l.price).toLocaleString()}`,
+    description: formatListingSnippet(l).slice(0, 72),
+  }));
 
-return sendList(
-  phone,
-  `${CATEGORY_EMOJI[type] ?? '📦'} *${label}*\n\n` +
-  `${listings.length} listing${listings.length !== 1 ? 's' : ''} available.\n` +
-  `Tap any listing to view full details and buy:\n\n` +
-  `_(Type *LISTINGS* to go back to categories)_`,
-  'View Listings',
-  [{ title: 'Available Now', rows }],  // ← shortened, was "${label} — Available Now"
-  undefined,
-  '🔒 Every transaction is escrow-protected.'
-);
+  return sendList(
+    phone,
+    `${CATEGORY_EMOJI[type] ?? '📦'} *${label}*\n\n` +
+    `${listings.length} listing${listings.length !== 1 ? 's' : ''} available.\n` +
+    `Tap any listing to view full details and buy:\n\n` +
+    `_(Type *LISTINGS* to go back to categories)_`,
+    'View Listings',
+    [{ title: 'Available Now', rows }],
+    undefined,
+    '🔒 Every transaction is escrow-protected.'
+  );
 }
 
 // ─── Step 3: Single listing detail ───────────────────────────────────────────
@@ -292,6 +307,7 @@ async function showListingDetail(phone: string, listingId: string): Promise<void
 
   const details   = formatFullDetails(listing);
   const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
+  const price     = listing.buyerPays || listing.price;
 
   return sendMessage(phone,
     `${listing.isFeatured ? '⭐ *FEATURED*\n' : ''}` +
@@ -307,15 +323,12 @@ async function showListingDetail(phone: string, listingId: string): Promise<void
       : '') +
 
     `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
-    `  💰  Price            *₦${(listing.buyerPays || listing.price).toLocaleString()}*\n` +
+    `  💰  Price            *₦${price.toLocaleString()}*\n` +
     `  👤  Seller           ${ratingStr}\n` +
     `  👁  Views            ${listing.viewCount + 1}\n` +
     `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
 
-    `🔒 *Escrow protected — your money is safe*\n\n` +
-    `To purchase, copy and send:\n` +
-    `\`BUY ${listing.listingId}\`\n\n` +
-    `_(Type *LISTINGS* to browse more)_`
+    listingDetailCTA(listingId, price),
   );
 }
 

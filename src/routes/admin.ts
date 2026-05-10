@@ -6,6 +6,7 @@ import { adminAuth, AdminRequest } from '../middleware/auth';
 import { adminLimiter, loginLimiter } from '../middleware/rateLimiter';
 import { sendMessage } from '../services/whatsapp';
 import { broadcastNewListing } from '../services/notifications';
+import { listingDetailCTA } from '../bot/flows/listings';
 import Listing     from '../models/Listing';
 import Transaction from '../models/Transaction';
 import Dispute     from '../models/Dispute';
@@ -16,6 +17,17 @@ import { TYPE_LABELS } from '../config/constants';
 const router = Router();
 
 router.use(adminLimiter);
+
+// ── Message template helpers ──────────────────────────────────────────────────
+
+export const approvalSellerMessage = (listingId: string): string =>
+  `✅ *Listing Verified!*\n\n` +
+  `Listing: *${listingId}*\n\n` +
+  `🟢 Your listing is now *LIVE* and visible to buyers!\n\n` +
+  `Buyers can purchase at your listed price or send you an offer to negotiate.\n` +
+  `You'll be notified of any offers and can accept, reject, or counter them.\n\n` +
+  `🔒 All payments are arranged through *Koji Agudah escrow* — your payout is protected.\n\n` +
+  `To see active offers on your listings, type *MY OFFERS*`;
 
 // ── Safe ID filter helpers ────────────────────────────────────────────────────
 function txnFilter(id: string): Record<string, any> {
@@ -113,12 +125,7 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
 
   await Listing.updateOne({ _id: listing._id }, { $set: { status: 'active' } });
 
-  await sendMessage(listing.seller.phone,
-    `✅ *Listing Verified!*\n\n` +
-    `Listing: *${listing.listingId}*\n\n` +
-    `🟢 Your listing is now *LIVE* and visible to buyers!\n\n` +
-    `🔒 When a buyer is ready, payment will be arranged through *Koji Agudah escrow* — you'll receive your payout once the deal is confirmed.`,
-  ).catch(() => {});
+  await sendMessage(listing.seller.phone, approvalSellerMessage(listing.listingId)).catch(() => {});
 
   broadcastNewListing(listing).catch(err =>
     console.error('[NOTIFY] Broadcast error:', err),

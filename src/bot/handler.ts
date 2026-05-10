@@ -5,6 +5,14 @@ import { handleSell }               from './flows/sell';
 import { handleBuy }                from './flows/buy';
 import { handleListings }           from './flows/listings';
 import { handleRequest }            from './flows/request';
+import {
+  handleMakeOffer,
+  handleAcceptOffer,
+  handleRejectOffer,
+  handleCounterOffer,
+  handleCancelOffer,
+  handleMyOffers,
+} from './flows/offer';
 /*
 import { handleDispute }            from './flows/dispute';
 import { handleRate }               from './flows/confirm';
@@ -27,7 +35,6 @@ export async function handleIncoming(
   const session = await getSession(phone);
 
   // ── Ensure user record exists + update last active ─────────────────────────
-  // upsert returns the doc; check if it was just created via wasNew flag.
   const userResult = await User.findOneAndUpdate(
     { phone },
     {
@@ -37,10 +44,9 @@ export async function handleIncoming(
       },
       $set: { lastActiveAt: new Date() },
     },
-    { upsert: true, new: false }, // new: false → returns doc BEFORE update (null if inserted)
+    { upsert: true, new: false },
   );
 
-  // If findOneAndUpdate returns null, the document didn't exist before — it's a new user
   const isNewUser = userResult === null;
 
   if (isNewUser) {
@@ -56,15 +62,14 @@ export async function handleIncoming(
   // ── Check for banned users ─────────────────────────────────────────────────
   const user = await User.findOne({ phone });
   if (user?.isBanned) {
-    return sendMessage(
-      phone,
+    return sendMessage(phone,
       `❌ Your account has been suspended.\n\n` +
       `Reason: ${user.banReason || 'Policy violation'}\n\n` +
       `Contact support: ${process.env.SUPPORT_PHONE}`,
     );
   }
 
-  // ── Global commands — work from any state ──────────────────────────────────
+  // ── Global commands ────────────────────────────────────────────────────────
   if (['MENU', 'START', 'HI', 'HELLO', 'HEY'].includes(upper)) {
     await clearSession(phone);
     return showWelcome(phone);
@@ -74,11 +79,21 @@ export async function handleIncoming(
     return showHelp(phone);
   }
 
+  // ── Cancel variants — must be checked before generic CANCEL ───────────────
   if (upper.startsWith('CANCEL TXN-')) {
     return handleBuy(phone, upper, session);
   }
 
-  if (upper === 'CANCEL' && !upper.startsWith('CANCEL REQUEST ') && !upper.startsWith('CANCEL TXN-')) {
+  if (upper.startsWith('CANCEL OFFER ')) {
+    const offerId = upper.replace('CANCEL OFFER ', '').trim();
+    return handleCancelOffer(phone, offerId);
+  }
+
+  if (upper.startsWith('CANCEL REQUEST ')) {
+    return handleRequest(phone, upper, session);
+  }
+
+  if (upper === 'CANCEL') {
     await clearSession(phone);
     return sendMessage(phone, '❌ Action cancelled.\n\nType *MENU* to start again.');
   }
@@ -94,21 +109,41 @@ export async function handleIncoming(
     return handleOptIn(phone, assetType);
   }
 
-  if (upper === 'NOTIFICATIONS ON') {
-    return handleNotificationsToggle(phone, true);
+  if (upper === 'NOTIFICATIONS ON')  return handleNotificationsToggle(phone, true);
+  if (upper === 'NOTIFICATIONS OFF') return handleNotificationsToggle(phone, false);
+
+  // ── Offer commands ─────────────────────────────────────────────────────────
+  // These are checked BEFORE the generic sell/buy/listings blocks so that
+  // ACCEPT / REJECT / COUNTER are never accidentally swallowed by a sell step.
+
+  if (upper.startsWith('OFFER ') || session?.step === 'offer_amount') {
+    return handleMakeOffer(phone, upper, session);
   }
 
-  if (upper === 'NOTIFICATIONS OFF') {
-    return handleNotificationsToggle(phone, false);
+  if (upper.startsWith('ACCEPT ')) {
+    const offerId = upper.replace('ACCEPT ', '').trim();
+    return handleAcceptOffer(phone, offerId);
+  }
+
+  if (upper.startsWith('REJECT ')) {
+    const offerId = upper.replace('REJECT ', '').trim();
+    return handleRejectOffer(phone, offerId);
+  }
+
+  if (upper.startsWith('COUNTER ')) {
+    return handleCounterOffer(phone, upper);
+  }
+
+  if (upper === 'MY OFFERS') {
+    return handleMyOffers(phone);
   }
 
   // ── Request flow ───────────────────────────────────────────────────────────
   if (
-    upper === 'REQUEST' ||
-    upper === 'MY REQUESTS' ||
+    upper === 'REQUEST'      ||
+    upper === 'MY REQUESTS'  ||
     upper.startsWith('REQTYPE_') ||
     upper.startsWith('RESPOND ') ||
-    upper.startsWith('CANCEL REQUEST ') ||
     session?.step === 'request_details'
   ) {
     return handleRequest(phone, upper, session);
