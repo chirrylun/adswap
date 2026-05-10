@@ -4,6 +4,7 @@ import { showWelcome, showHelp } from "./flows/welcome";
 import { handleSell } from "./flows/sell";
 import { handleBuy } from "./flows/buy";
 import { handleListings } from "./flows/listings";
+import { handleRequest } from "./flows/request";
 /*
 import { handleDispute }            from './flows/dispute';
 
@@ -64,7 +65,7 @@ export async function handleIncoming(
     return handleBuy(phone, upper, session);
   }
 
-  if (upper === "CANCEL") {
+  if (upper === 'CANCEL' && !upper.startsWith('CANCEL REQUEST ') && !upper.startsWith('CANCEL TXN-')) {
     await clearSession(phone);
     return sendMessage(
       phone,
@@ -90,6 +91,18 @@ export async function handleIncoming(
   if (upper === "NOTIFICATIONS OFF") {
     return handleNotificationsToggle(phone, false);
   }
+
+  // ── Request flow ───────────────────────────────────────────────────────────
+if (
+  upper === 'REQUEST' ||
+  upper === 'MY REQUESTS' ||
+  upper.startsWith('REQTYPE_') ||
+  upper.startsWith('RESPOND ') ||
+  upper.startsWith('CANCEL REQUEST ') ||
+  session?.step === 'request_details'
+) {
+  return handleRequest(phone, upper, session);
+}
 
   // ── Sell flow ──────────────────────────────────────────────────────────────
   if (upper === "SELL" || session?.step?.startsWith("sell_")) {

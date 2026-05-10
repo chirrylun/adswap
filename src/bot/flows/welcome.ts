@@ -43,6 +43,9 @@ export async function showHelp(phone: string): Promise<void> {
     `*LISTINGS* — Browse what's available\n` +
     `*CANCEL TXN-[id]* — Cancel a pending transaction\n` +
     `*MENU* — Return to the main menu\n\n` +
+    `*REQUEST* — Ask the community for a specific asset\n` +
+    `*MY REQUESTS* — View your open requests\n` +
+    `*RESPOND [REF]* — Respond to someone's asset request\n` +
     `🔒 All payments go through *Koji Agudah escrow* — your money is never at risk.\n\n` +
     `Need help? Contact us: ${process.env.SUPPORT_PHONE}`,
     [

@@ -665,23 +665,24 @@ export async function handleSell(
 
   // ── Entry ──────────────────────────────────────────────────────────────────
   if (text === "SELL") {
-    if (step === 'sell_type' && data.linkedRequestType) {
-  const typeKey = data.linkedRequestType;
-  await setSession(phone, 'sell_price', {
-    type:              typeKey,
-    linkedRequestId:   data.linkedRequestId,
-    linkedRequestType: data.linkedRequestType,
-  });
-  return sendMessage(phone,
-    `✅ *${TYPE_LABELS[typeKey]}* selected.\n\n` +
-    `What is your asking price in Naira (₦)?\n\n` +
-    `Enter numbers only — no commas or symbols.\n` +
-    `Example: *75000*\n\n` +
-    `Minimum: ₦1,000\n\n` +
-    `💡 You will receive this *full amount* minus AdSwap's service fee.\n\n` +
-    `Type *CANCEL* to exit.`,
-  );
-}
+    if (step === "sell_type" && data.linkedRequestType) {
+      const typeKey = data.linkedRequestType;
+      await setSession(phone, "sell_price", {
+        type: typeKey,
+        linkedRequestId: data.linkedRequestId,
+        linkedRequestType: data.linkedRequestType,
+      });
+      return sendMessage(
+        phone,
+        `✅ *${TYPE_LABELS[typeKey]}* selected.\n\n` +
+          `What is your asking price in Naira (₦)?\n\n` +
+          `Enter numbers only — no commas or symbols.\n` +
+          `Example: *75000*\n\n` +
+          `Minimum: ₦1,000\n\n` +
+          `💡 You will receive this *full amount* minus AdSwap's service fee.\n\n` +
+          `Type *CANCEL* to exit.`,
+      );
+    }
     await setSession(phone, "sell_type", {});
     return sendMessage(
       phone,
@@ -877,26 +878,12 @@ export async function handleSell(
           const req = await Request.findOne({
             requestId: linkedRequestId,
             status: "open",
-          }).populate<{ requester: any }>("requester");
-
+          });
           if (req) {
-            // Track respondent
             await Request.updateOne(
               { _id: req._id },
               { $addToSet: { respondents: user._id } },
             );
-
-            // Notify the requester
-            const label = TYPE_LABELS[req.type] ?? req.type;
-            await sendMessage(
-              req.requester.phone,
-              `🔔 *Someone responded to your request!*\n\n` +
-                `You requested a *${label}* (Ref: ${linkedRequestId}).\n\n` +
-                `A seller has listed a matching asset:\n` +
-                `\`VIEW ${listingId}\`\n\n` +
-                `The listing is pending verification — you'll be notified again once it goes live.\n\n` +
-                `🔒 All purchases are protected by *Koji Agudah escrow*.`,
-            ).catch(() => {});
           }
         }
 
