@@ -39,12 +39,13 @@ const CATEGORY_EMOJI: Record<string, string> = {
 export function listingDetailCTA(listingId: string, price: number): string {
   return (
     `🔒 *Escrow protected — your money is safe*\n\n` +
-    `─── Buy or Make an Offer ───\n` +
-    `Buy at full price:\n` +
+    `─── Buy or Make an Offer ───\n\n` +
+    `💳 *Buy at full price:*\n` +
     `\`BUY ${listingId}\`\n\n` +
-    `Make an offer (enter your price):\n` +
-    `\`OFFER ${listingId} [amount]\`\n` +
-    `_e.g._ \`OFFER ${listingId} ${Math.round(price * 0.85).toLocaleString()}\`\n\n` +
+    `💬 *Make an offer (2 steps):*\n` +
+    `1️⃣ Send: \`OFFER ${listingId}\`\n` +
+    `2️⃣ You'll be asked to enter your amount\n` +
+    `   _e.g._ *${Math.round(price * 0.85).toLocaleString()}*\n\n` +
     `_(Type *LISTINGS* to go back to categories)_`
   );
 }
