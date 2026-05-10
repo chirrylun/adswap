@@ -8,11 +8,11 @@ import { generateId } from '../../utils/helpers';
 import { ISession } from '../../models/Session';
 
 // ─── Fee calculation ──────────────────────────────────────────────────────────
-// Fee is ADDED on top of the seller's price — seller always gets their full ask.
-function calcFee(price: number): { fee: number; rate: number; buyerPays: number } {
+// Fee is DEDUCTED from the seller's price.
+function calcFee(price: number): { fee: number; rate: number; sellerReceives: number } {
   const tier = FEE_TIERS.find(t => price <= t.max) ?? FEE_TIERS[FEE_TIERS.length - 1];
   const fee  = Math.round(price * tier.rate);
-  return { fee, rate: tier.rate * 100, buyerPays: price + fee };
+  return { fee, rate: tier.rate * 100, sellerReceives: price - fee };
 }
 
 // ─── Question definitions per asset type ─────────────────────────────────────
@@ -399,6 +399,7 @@ function buildAdminAlert(
   data:        Record<string, any>,
   extra:       Record<string, any>,
   screenshots: number,
+  sellerReceives: number,
   buyerPays:   number,
   fee:         number,
 ): string {
@@ -488,7 +489,7 @@ function buildAdminAlert(
     `🔔 *New Listing — Review Required*\n\n` +
     `🆔 ${listingId}\n` +
     `📦 ${typeLabel}\n` +
-    `💰 Seller asking: ₦${Number(data.price).toLocaleString()}\n` +
+    `💰 Seller asking: ₦${sellerReceives.toLocaleString()}\n` +
     `💳 Buyer pays: ₦${buyerPays.toLocaleString()} _(incl. ₦${fee.toLocaleString()} fee)_\n` +
     `📱 Seller: ${phone}\n` +
     `📸 Screenshots: ${screenshots}\n\n` +
@@ -551,18 +552,18 @@ export async function handleSell(
     if (isNaN(price) || price < 1000) {
       return sendMessage(phone, '❌ Invalid price. Minimum is ₦1,000.\n\nEnter numbers only — example: 75000');
     }
-    const { fee, rate, buyerPays } = calcFee(price);
-    await setSession(phone, 'sell_questions', { type: data.type, price });
-    return sendMessage(phone,
-      `✅ *Price set: ₦${price.toLocaleString()}*\n\n` +
-      `You receive: *₦${price.toLocaleString()}*\n` +
-      `AdSwap fee (${rate}%): *₦${fee.toLocaleString()}* — charged to buyer\n` +
-      `Buyer pays: *₦${buyerPays.toLocaleString()}* total\n\n` +
-      `🔒 Payment is handled via *Koji Agudah escrow* — funds are held securely until the buyer confirms access.\n\n` +
-      `Now I'll ask a few quick questions about the account.\n` +
-      `This helps buyers trust your listing.\n\n` +
-      `Type *CANCEL* at any time to exit.`,
-    );
+   const { fee, rate, sellerReceives } = calcFee(price);
+await setSession(phone, 'sell_questions', { type: data.type, price });
+return sendMessage(phone,
+  `✅ *Price set: ₦${price.toLocaleString()}*\n\n` +
+  `Buyer pays: *₦${price.toLocaleString()}*\n` +
+  `AdSwap fee (${rate}%): *₦${fee.toLocaleString()}* — deducted from your payout\n` +
+  `You receive: *₦${sellerReceives.toLocaleString()}* after fee\n\n` +
+  `🔒 Payment is handled via *Koji Agudah escrow* — funds are held securely until the buyer confirms access.\n\n` +
+  `Now I'll ask a few quick questions about the account.\n` +
+  `This helps buyers trust your listing.\n\n` +
+  `Type *CANCEL* at any time to exit.`,
+);
   }
 
   // ── Start questionnaire ────────────────────────────────────────────────────
@@ -644,18 +645,20 @@ export async function handleSell(
         );
 
         const listingId              = `ADS-${generateId(5)}`;
-        const { fee, rate, buyerPays } = calcFee(data.price);
+       const { fee, rate, sellerReceives } = calcFee(data.price);
         const expiresAt              = new Date(Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
         const extraFields            = buildListingFields(data.type, data);
+        const buyerPays = data.price;
 
         // All fields mapped to exact IListing schema properties
         await Listing.create({
-          listingId,
-          seller:         user._id,
-          type:           data.type,
-          price:          data.price,       // seller's full asking price
-          platformFee:    fee,              // AdSwap fee (added on top)
-          buyerPays,                        // price + fee — what buyer pays
+  listingId,
+  seller:         user._id,
+  type:           data.type,
+  price:          data.price,       // what buyer pays (the listed price)
+  platformFee:    fee,              // AdSwap cut deducted from seller
+  buyerPays:      buyerPays,       // buyer pays the listed price exactly
+  sellerReceives,                  
           description:    data.description,
           screenshotUrls: screenshots,
           status:         'pending_verification',
@@ -665,7 +668,7 @@ export async function handleSell(
 
         await sendMessage(
           process.env.SUPPORT_PHONE!,
-          buildAdminAlert(listingId, phone, data, extraFields, screenshots.length, buyerPays, fee),
+          buildAdminAlert(listingId, phone, data, extraFields, screenshots.length, sellerReceives, buyerPays, fee),
         ).catch(err => console.error('[SELL] Admin notify error:', err));
 
         await clearSession(phone);
@@ -675,7 +678,8 @@ export async function handleSell(
           `Listing ID: *${listingId}*\n` +
           `Type: ${TYPE_LABELS[data.type]}\n` +
           `Your asking price: ₦${data.price.toLocaleString()}\n` +
-          `Buyer pays: ₦${buyerPays.toLocaleString()} _(includes ₦${fee.toLocaleString()} AdSwap fee)_\n\n` +
+          `Buyer pays: ₦${data.price.toLocaleString()}\n` +
+          `You receive: ₦${sellerReceives.toLocaleString()} _(after ₦${fee.toLocaleString()} AdSwap fee)_\n\n` +
           `⏳ Admin will review your listing within *24 hours*.\n` +
           `You'll get a WhatsApp notification once it goes live.\n\n` +
           `🔒 When a buyer is ready, payment will be handled through *Koji Agudah escrow* — your funds are protected until the deal is confirmed.\n\n` +

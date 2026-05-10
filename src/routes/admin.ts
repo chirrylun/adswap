@@ -113,9 +113,10 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
 
   if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-  listing.status          = 'rejected';
-  listing.rejectionReason = reason || 'Screenshots insufficient or unclear';
-  await listing.save();
+  await Listing.updateOne(
+  { _id: listing._id },
+  { $set: { status: 'rejected', rejectionReason: reason || 'Screenshots insufficient or unclear' } }
+);
 
   await sendMessage(listing.seller.phone,
     `❌ *Listing Rejected*\n\n` +

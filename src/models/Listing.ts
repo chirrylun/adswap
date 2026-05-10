@@ -26,6 +26,7 @@ export interface IListing extends Document {
   price:            number;   // seller's asking price (what they receive)
   platformFee:      number;   // AdSwap fee added on top
   buyerPays:        number;   // price + platformFee — what buyer actually pays
+  sellerReceives:   number;   // what the seller receives
 
   description:      string;
   niche?:           string;
@@ -117,6 +118,7 @@ const ListingSchema = new Schema<IListing>(
     price:       { type: Number, required: true, min: 1000 },
     platformFee: { type: Number, required: true },
     buyerPays:   { type: Number, required: true },
+    sellerReceives: {type: Number, required: true},
 
     description: { type: String, required: true, maxlength: 600 },
     niche:       { type: String, maxlength: 100 },

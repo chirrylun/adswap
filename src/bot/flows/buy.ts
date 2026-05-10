@@ -9,23 +9,23 @@ import { ISession } from '../../models/Session';
 
 const buyLocks = new Set<string>();
 
-// ─── Fee calculation (fee added on top of seller price) ───────────────────────
-function calcFee(price: number): { fee: number; buyerPays: number } {
+// ─── Fee calculation (removed from seller price) ───────────────────────
+function calcFee(price: number): { fee: number; sellerReceives: number } {
   const tier = FEE_TIERS.find(t => price <= t.max) ?? FEE_TIERS[FEE_TIERS.length - 1];
   const fee  = Math.round(price * tier.rate);
-  return { fee, buyerPays: price + fee };
+  return { fee, sellerReceives: price - fee };
 }
 
 // ─── Build escrow briefing for PAYMENT_PHONE ──────────────────────────────────
 function buildEscrowBriefing(
-  txnId:         string,
-  listingId:     string,
-  typeLabel:     string,
-  buyerPhone:    string,
-  sellerPhone:   string,
-  sellerPrice:   number,
-  fee:           number,
-  buyerPays:     number,
+  txnId:          string,
+  listingId:      string,
+  typeLabel:      string,
+  buyerPhone:     string,
+  sellerPhone:    string,
+  price:          number,
+  fee:            number,
+  sellerReceives: number,
 ): string {
   const now = new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' });
 
@@ -41,18 +41,17 @@ function buildEscrowBriefing(
     `👤 *Buyer:* ${buyerPhone}\n` +
     `🏪 *Seller:* ${sellerPhone}\n\n` +
     `─────── PAYMENT BREAKDOWN ───────\n` +
-    `💰 Seller's price:  ₦${sellerPrice.toLocaleString()}\n` +
-    `➕ AdSwap fee:       ₦${fee.toLocaleString()}\n` +
+    `💳 Buyer pays:      ₦${price.toLocaleString()}\n` +
+    `➖ AdSwap fee:       ₦${fee.toLocaleString()}\n` +
     `━━━━━━━━━━━━━━━━━━━━━\n` +
-    `💳 Buyer pays total: ₦${buyerPays.toLocaleString()}\n` +
-    `💸 Seller receives:  ₦${sellerPrice.toLocaleString()}\n\n` +
+    `💸 Seller receives: ₦${sellerReceives.toLocaleString()}\n\n` +
     `─────── ESCROW TERMS ───────\n` +
-    `1. Buyer sends ₦${buyerPays.toLocaleString()} into Koji Agudah escrow\n` +
+    `1. Buyer sends ₦${price.toLocaleString()} into Koji Agudah escrow\n` +
     `2. Funds are held — NOT released until buyer confirms access\n` +
-    `3. Seller shares account credentials after escrow confirms receipt\n` +
+    `3. Seller shares credentials after escrow confirms receipt\n` +
     `4. Buyer has 48 hours to verify full access and confirm\n` +
-    `5. On buyer confirmation, ₦${sellerPrice.toLocaleString()} is released to seller\n` +
-    `6. If buyer raises a dispute within 48 hrs, funds are held pending review\n` +
+    `5. On buyer confirmation, ₦${sellerReceives.toLocaleString()} is released to seller\n` +
+    `6. If buyer disputes within 48 hrs, funds are held pending review\n` +
     `7. If no action within 48 hrs, funds auto-release to seller\n\n` +
     `─────── ACTION ───────\n` +
     `📲 Contact buyer (${buyerPhone}) with Koji Agudah escrow payment details.\n` +
@@ -81,14 +80,14 @@ export async function handleBuy(
     }
 
     const lines = listings.map((l, i) => {
-      const typeLabel  = TYPE_LABELS[l.type] ?? l.type;
-      const { buyerPays } = calcFee(l.price);
-      return (
-        `*${i + 1}. ${typeLabel}*${l.isFeatured ? ' ⭐' : ''}\n` +
-        `💰 ₦${buyerPays.toLocaleString()} _(seller asks ₦${l.price.toLocaleString()})_\n` +
-        `🆔 \`BUY ${l.listingId}\``
-      );
-    });
+  const typeLabel      = TYPE_LABELS[l.type] ?? l.type;
+  const { fee, sellerReceives } = calcFee(l.price);
+  return (
+    `*${i + 1}. ${typeLabel}*${l.isFeatured ? ' ⭐' : ''}\n` +
+    `💰 ₦${l.price.toLocaleString()} _(seller receives ₦${sellerReceives.toLocaleString()})_\n` +
+    `🆔 \`BUY ${l.listingId}\``
+  );
+});
 
     return sendMessage(phone,
       `🛒 *Active Listings* (${listings.length})\n\n` +
@@ -128,7 +127,8 @@ export async function handleBuy(
       }
 
       const typeLabel        = TYPE_LABELS[listing.type] ?? listing.type;
-      const { fee, buyerPays } = calcFee(listing.price);
+      const { fee, sellerReceives } = calcFee(listing.price);
+      const buyerPays = listing.price;
 
       // ── Check for existing open transaction ────────────────────────────────
       const existing = await Transaction.findOne({
@@ -149,38 +149,32 @@ export async function handleBuy(
       const transactionId = `TXN-${generateId(6)}`;
 
       await Transaction.create({
-        transactionId,
-        listing:        listing._id,
-        listingId,
-        buyer:          buyer._id,
-        seller:         listing.seller._id,
-        amount:         buyerPays,          // total buyer pays
-        platformFee:    fee,
-        sellerReceives: listing.price,      // seller gets their full asking price
-        status:         'pending',
-      });
-
+  transactionId,
+  listing:        listing._id,
+  listingId,
+  buyer:          buyer._id,
+  seller:         listing.seller._id,
+  amount:         listing.price,      // buyer pays the listed price
+  platformFee:    fee,
+  sellerReceives,                     // seller gets price minus fee
+  status:         'pending',
+});
+      
       // ── Notify payment handler with full escrow briefing ───────────────────
       await sendMessage(
         process.env.PAYMENT_PHONE!,
-        buildEscrowBriefing(
-          transactionId,
-          listingId,
-          typeLabel,
-          phone,
-          listing.seller.phone,
-          listing.price,
-          fee,
-          buyerPays,
-        ),
-      ).catch(err => console.error('[Buy] Payment notify error:', err));
+       buildEscrowBriefing(
+  transactionId, listingId, typeLabel, phone,
+  listing.seller.phone, listing.price, fee, sellerReceives,
+)
+      ).catch(err => console.error('[Buy] Payment notify error:', err?.response?.data ?? err?.message ?? err));
 
       // ── Notify seller ──────────────────────────────────────────────────────
       await sendMessage(listing.seller.phone,
         `🎉 *Someone wants to buy your listing!*\n\n` +
         `Asset: *${typeLabel}*\n` +
         `Listing: *${listingId}*\n` +
-        `You will receive: *₦${listing.price.toLocaleString()}*\n\n` +
+        `You will receive: *₦${sellerReceives.toLocaleString()}* _(after AdSwap fee)_\n\n` +
         `🔒 The transaction will be handled through *Koji Agudah escrow* — your payment is protected.\n\n` +
         `Our team will contact both parties shortly to initiate the escrow payment.\n\n` +
         `Transaction ref: *${transactionId}*\n\n` +
@@ -192,14 +186,12 @@ export async function handleBuy(
         `✅ *Purchase Request Received!*\n\n` +
         `Asset: *${typeLabel}*\n` +
         `Listing: *${listingId}*\n\n` +
-        `─────── Payment Summary ───────\n` +
-        `Seller's price:  ₦${listing.price.toLocaleString()}\n` +
-        `AdSwap fee:      ₦${fee.toLocaleString()}\n` +
-        `*You pay total:  ₦${buyerPays.toLocaleString()}*\n\n` +
+        `─────── Payment Amount ───────\n` +
+        `*You pay: ₦${listing.price.toLocaleString()}*\n\n` +
         `─────────────────\n` +
         `🔒 *How it works:*\n` +
-        `1️⃣  Our team will send you a *Koji Agudah escrow* payment link\n` +
-        `2️⃣  Your ₦${buyerPays.toLocaleString()} is held securely — not sent to the seller yet\n` +
+        `1️⃣  Our team will contact both parties shortly to initiate a *Koji Agudah escrow* escrow payment\n` +
+       `2️⃣  Your ₦${listing.price.toLocaleString()} is held securely — not sent to the seller yet\n` +
         `3️⃣  Seller shares account credentials once escrow confirms your payment\n` +
         `4️⃣  You verify access and confirm\n` +
         `5️⃣  Funds released to seller\n\n` +
