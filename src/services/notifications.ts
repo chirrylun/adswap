@@ -95,8 +95,7 @@ export async function broadcastNewListing(listing: any): Promise<void> {
   _id:      { $ne: listing.seller },
   $or: [
     { 'notifications.enabled': true,  'notifications.optedOutTypes': { $nin: [listing.type] } },
-    { 'notifications': { $exists: false } },  // legacy users with no prefs yet
-    { 'notifications.enabled': { $exists: false } },  // partial doc
+    { 'notifications.enabled': { $exists: false } },  // legacy users without the field — include them
   ],
 }).select('phone').lean();
 
