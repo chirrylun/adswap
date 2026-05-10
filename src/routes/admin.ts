@@ -1,20 +1,40 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt    from 'jsonwebtoken';
+import bcrypt    from 'bcryptjs';
+import jwt       from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { adminAuth, AdminRequest } from '../middleware/auth';
 import { adminLimiter, loginLimiter } from '../middleware/rateLimiter';
 import { sendMessage } from '../services/whatsapp';
 import { broadcastNewListing } from '../services/notifications';
-import Listing          from '../models/Listing';
-import Transaction      from '../models/Transaction';
-import Dispute          from '../models/Dispute';
-import User             from '../models/User';
-import BuyRequest       from '../models/Request';   // aliased — avoids clash with Express Request
-import { TYPE_LABELS }  from '../config/constants';
+import Listing     from '../models/Listing';
+import Transaction from '../models/Transaction';
+import Dispute     from '../models/Dispute';
+import User        from '../models/User';
+import BuyRequest  from '../models/Request';
+import { TYPE_LABELS } from '../config/constants';
 
 const router = Router();
 
 router.use(adminLimiter);
+
+// ── Safe ID filter helpers ────────────────────────────────────────────────────
+function txnFilter(id: string): Record<string, any> {
+  if (mongoose.isValidObjectId(id)) {
+    return { $or: [{ transactionId: id }, { _id: id }] };
+  }
+  return { transactionId: id };
+}
+
+function reqFilter(id: string): Record<string, any> {
+  if (mongoose.isValidObjectId(id)) {
+    return { $or: [{ requestId: id }, { _id: id }] };
+  }
+  return { requestId: id };
+}
+
+function paramId(req: AdminRequest): string {
+  return Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+}
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 router.post('/login', loginLimiter, async (req: Request, res: Response) => {
@@ -93,33 +113,32 @@ router.post('/listings/:id/approve', adminAuth, async (req: AdminRequest, res: R
     `✅ *Listing Verified!*\n\n` +
     `Listing: *${listing.listingId}*\n\n` +
     `🟢 Your listing is now *LIVE* and visible to buyers!\n\n` +
-    `🔒 When a buyer is ready, payment will be arranged through *Koji Agudah escrow* — you'll receive your full asking price once the deal is confirmed.`,
+    `🔒 When a buyer is ready, payment will be arranged through *Koji Agudah escrow* — you'll receive your payout once the deal is confirmed.`,
   ).catch(() => {});
 
   broadcastNewListing(listing).catch(err =>
     console.error('[NOTIFY] Broadcast error:', err),
   );
 
-  // Notify requester if there's a matching open request
   const linkedReq = await BuyRequest.findOne({
-  type:        listing.type,
-  status:      'open',
-  respondents: listing.seller,
-}).populate<{ requester: any }>('requester');
+    type:        listing.type,
+    status:      'open',
+    respondents: listing.seller._id,
+  }).populate<{ requester: any }>('requester');
 
-if (linkedReq) {
-  const label = TYPE_LABELS[listing.type] ?? listing.type;
-  await sendMessage(linkedReq.requester.phone,
-    `🟢 *Good news! A seller responded to your request*\n\n` +
-    `You requested a *${label}* (Ref: ${linkedReq.requestId}).\n\n` +
-    `A seller has listed a verified asset that matches:\n\n` +
-    `\`VIEW ${listing.listingId}\`\n\n` +
-    `🔒 Ready to buy? Your payment will be protected by *Koji Agudah escrow*.\n\n` +
-    `Type *LISTINGS* to browse all available listings.`
-  ).catch(() => {});
+  if (linkedReq) {
+    const label = TYPE_LABELS[listing.type] ?? listing.type;
+    await sendMessage(linkedReq.requester.phone,
+      `🟢 *Good news! A seller responded to your request*\n\n` +
+      `You requested a *${label}* (Ref: ${linkedReq.requestId}).\n\n` +
+      `A seller has listed a verified asset that matches:\n\n` +
+      `\`VIEW ${listing.listingId}\`\n\n` +
+      `🔒 Ready to buy? Your payment will be protected by *Koji Agudah escrow*.\n\n` +
+      `Type *LISTINGS* to browse all available listings.`,
+    ).catch(() => {});
 
-  await BuyRequest.updateOne({ _id: linkedReq._id }, { $set: { status: 'filled' } });
-}
+    await BuyRequest.updateOne({ _id: linkedReq._id }, { $set: { status: 'filled' } });
+  }
 
   res.json({ success: true, status: 'active' });
 });
@@ -151,7 +170,6 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
 });
 
 // ── Transactions ──────────────────────────────────────────────────────────────
-
 router.get('/transactions', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status, page = 1, limit = 20 } = req.query;
   const filter: any = status && status !== 'all' ? { status } : {};
@@ -171,9 +189,7 @@ router.get('/transactions', adminAuth, async (req: AdminRequest, res: Response) 
 });
 
 router.get('/transactions/:id', adminAuth, async (req: AdminRequest, res: Response) => {
-  const txn = await Transaction.findOne({
-    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
-  })
+  const txn = await Transaction.findOne(txnFilter(paramId(req)) as any)
     .populate('buyer',   'phone')
     .populate('seller',  'phone')
     .populate('listing', 'listingId type price');
@@ -182,14 +198,12 @@ router.get('/transactions/:id', adminAuth, async (req: AdminRequest, res: Respon
   res.json({ transaction: txn });
 });
 
-// Mark a transaction as completed (payout confirmed via Koji Agudah escrow)
 router.post('/transactions/:id/complete', adminAuth, async (req: AdminRequest, res: Response) => {
   const { adminNote } = req.body;
 
-  const txn = await Transaction.findOne({
-    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
-    status: 'pending',
-  }).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
+  const txn = await Transaction.findOne(
+    Object.assign(txnFilter(paramId(req)), { status: 'pending' }) as any,
+  ).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
 
   if (!txn) return res.status(404).json({ error: 'Transaction not found or not in pending status' });
 
@@ -203,7 +217,7 @@ router.post('/transactions/:id/complete', adminAuth, async (req: AdminRequest, r
     `Transaction: ${txn.transactionId}\n` +
     `Amount: ₦${txn.sellerReceives?.toLocaleString()}\n\n` +
     `Your payment has been sent via Koji Agudah escrow. Please check your account.\n\n` +
-    `Thank you for selling on AdSwap! 🎉`,
+    `Thank you for selling on Swappa! 🎉`,
   ).catch(() => {});
 
   await sendMessage(txn.buyer.phone,
@@ -216,14 +230,12 @@ router.post('/transactions/:id/complete', adminAuth, async (req: AdminRequest, r
   res.json({ success: true, transactionId: txn.transactionId, status: 'completed' });
 });
 
-// Mark a transaction as cancelled (deal fell through, no payment, etc.)
 router.post('/transactions/:id/cancel', adminAuth, async (req: AdminRequest, res: Response) => {
   const { adminNote } = req.body;
 
-  const txn = await Transaction.findOne({
-    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
-    status: 'pending',
-  }).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
+  const txn = await Transaction.findOne(
+    Object.assign(txnFilter(paramId(req)), { status: 'pending' }) as any,
+  ).populate<{ seller: any; buyer: any }>(['seller', 'buyer']);
 
   if (!txn) return res.status(404).json({ error: 'Transaction not found or not in pending status' });
 
@@ -249,18 +261,18 @@ router.post('/transactions/:id/cancel', adminAuth, async (req: AdminRequest, res
   res.json({ success: true, transactionId: txn.transactionId, status: 'cancelled' });
 });
 
-// Reopen a cancelled transaction if needed
 router.post('/transactions/:id/reopen', adminAuth, async (req: AdminRequest, res: Response) => {
-  const txn = await Transaction.findOne({
-    $or: [{ transactionId: req.params.id }, { _id: req.params.id }],
-    status: 'cancelled',
-  });
+  const { adminNote } = req.body;
+
+  const txn = await Transaction.findOne(
+    Object.assign(txnFilter(paramId(req)), { status: 'cancelled' }) as any,
+  );
 
   if (!txn) return res.status(404).json({ error: 'Transaction not found or not cancelled' });
 
   txn.status      = 'pending';
   txn.cancelledAt = undefined;
-  if (req.body.adminNote) txn.adminNote = req.body.adminNote;
+  if (adminNote) txn.adminNote = adminNote;
   await txn.save();
 
   res.json({ success: true, transactionId: txn.transactionId, status: 'pending' });
@@ -299,7 +311,6 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
   await dispute.save();
 
   if (decision === 'buyer') {
-    // Resolved in buyer's favour — cancel transaction, arrange refund via escrow
     txn.status      = 'cancelled';
     txn.cancelledAt = new Date();
     txn.adminNote   = `Dispute resolved in buyer's favour: ${resolution}`;
@@ -334,7 +345,6 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
       ).catch(() => {});
     }
   } else {
-    // Resolved in seller's favour — complete transaction, release via escrow
     txn.status      = 'completed';
     txn.completedAt = new Date();
     txn.adminNote   = `Dispute resolved in seller's favour: ${resolution}`;
@@ -364,12 +374,10 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
 });
 
 // ── Requests ──────────────────────────────────────────────────────────────────
- 
-// List all requests (paginated, filterable by status)
 router.get('/requests', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status, page = 1, limit = 20 } = req.query;
   const filter: any = status && status !== 'all' ? { status } : {};
- 
+
   const [requests, total] = await Promise.all([
     BuyRequest.find(filter)
       .populate('requester', 'phone name')
@@ -378,31 +386,27 @@ router.get('/requests', adminAuth, async (req: AdminRequest, res: Response) => {
       .limit(+limit),
     BuyRequest.countDocuments(filter),
   ]);
- 
+
   res.json({ requests, total, page: +page, pages: Math.ceil(total / +limit) });
 });
- 
-// Get a single request
+
 router.get('/requests/:id', adminAuth, async (req: AdminRequest, res: Response) => {
-  const request = await BuyRequest.findOne({
-    $or: [{ requestId: req.params.id }, { _id: req.params.id }],
-  }).populate('requester', 'phone name');
- 
+  const request = await BuyRequest.findOne(reqFilter(paramId(req)) as any)
+    .populate('requester', 'phone name');
+
   if (!request) return res.status(404).json({ error: 'Request not found' });
   res.json({ request });
 });
- 
-// Cancel a request from the admin dashboard
+
 router.post('/requests/:id/cancel', adminAuth, async (req: AdminRequest, res: Response) => {
-  const request = await BuyRequest.findOne({
-    $or: [{ requestId: req.params.id }, { _id: req.params.id }],
-    status: 'open',
-  });
- 
+  const request = await BuyRequest.findOne(
+    Object.assign(reqFilter(paramId(req)), { status: 'open' }) as any,
+  );
+
   if (!request) return res.status(404).json({ error: 'Request not found or already closed' });
- 
+
   await BuyRequest.updateOne({ _id: request._id }, { $set: { status: 'cancelled' } });
- 
+
   res.json({ success: true, requestId: request.requestId, status: 'cancelled' });
 });
 
