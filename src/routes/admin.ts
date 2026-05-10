@@ -363,6 +363,49 @@ router.post('/disputes/:id/resolve', adminAuth, async (req: AdminRequest, res: R
   res.json({ success: true, status: dispute.status });
 });
 
+// ── Requests ──────────────────────────────────────────────────────────────────
+ 
+// List all requests (paginated, filterable by status)
+router.get('/requests', adminAuth, async (req: AdminRequest, res: Response) => {
+  const { status, page = 1, limit = 20 } = req.query;
+  const filter: any = status && status !== 'all' ? { status } : {};
+ 
+  const [requests, total] = await Promise.all([
+    BuyRequest.find(filter)
+      .populate('requester', 'phone name')
+      .sort({ createdAt: -1 })
+      .skip((+page - 1) * +limit)
+      .limit(+limit),
+    BuyRequest.countDocuments(filter),
+  ]);
+ 
+  res.json({ requests, total, page: +page, pages: Math.ceil(total / +limit) });
+});
+ 
+// Get a single request
+router.get('/requests/:id', adminAuth, async (req: AdminRequest, res: Response) => {
+  const request = await BuyRequest.findOne({
+    $or: [{ requestId: req.params.id }, { _id: req.params.id }],
+  }).populate('requester', 'phone name');
+ 
+  if (!request) return res.status(404).json({ error: 'Request not found' });
+  res.json({ request });
+});
+ 
+// Cancel a request from the admin dashboard
+router.post('/requests/:id/cancel', adminAuth, async (req: AdminRequest, res: Response) => {
+  const request = await BuyRequest.findOne({
+    $or: [{ requestId: req.params.id }, { _id: req.params.id }],
+    status: 'open',
+  });
+ 
+  if (!request) return res.status(404).json({ error: 'Request not found or already closed' });
+ 
+  await BuyRequest.updateOne({ _id: request._id }, { $set: { status: 'cancelled' } });
+ 
+  res.json({ success: true, requestId: request.requestId, status: 'cancelled' });
+});
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 router.get('/users', adminAuth, async (req: AdminRequest, res: Response) => {
   const { page = 1, limit = 20, search } = req.query;
