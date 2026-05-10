@@ -1,34 +1,34 @@
-import { sendMessage } from "../services/whatsapp";
-import { getSession, clearSession } from "./session";
-import { showWelcome, showHelp } from "./flows/welcome";
-import { handleSell } from "./flows/sell";
-import { handleBuy } from "./flows/buy";
-import { handleListings } from "./flows/listings";
-import { handleRequest } from "./flows/request";
+import { sendMessage }    from '../services/whatsapp';
+import { getSession, clearSession } from './session';
+import { showWelcome, showHelp }    from './flows/welcome';
+import { handleSell }               from './flows/sell';
+import { handleBuy }                from './flows/buy';
+import { handleListings }           from './flows/listings';
+import { handleRequest }            from './flows/request';
 /*
 import { handleDispute }            from './flows/dispute';
-
 import { handleRate }               from './flows/confirm';
 */
 import {
   handleOptOut,
   handleOptIn,
   handleNotificationsToggle,
-} from "../services/notifications";
-import User from "../models/User";
+} from '../services/notifications';
+import User from '../models/User';
 
 export async function handleIncoming(
-  phone: string,
-  text: string,
+  phone:    string,
+  text:     string,
   mediaId?: string,
 ): Promise<void> {
   console.log(`Incoming message from ${phone}: "${text}"`);
 
-  const upper = text.trim().toUpperCase();
+  const upper   = text.trim().toUpperCase();
   const session = await getSession(phone);
 
   // ── Ensure user record exists + update last active ─────────────────────────
-  await User.findOneAndUpdate(
+  // upsert returns the doc; check if it was just created via wasNew flag.
+  const userResult = await User.findOneAndUpdate(
     { phone },
     {
       $setOnInsert: {
@@ -37,8 +37,21 @@ export async function handleIncoming(
       },
       $set: { lastActiveAt: new Date() },
     },
-    { upsert: true },
+    { upsert: true, new: false }, // new: false → returns doc BEFORE update (null if inserted)
   );
+
+  // If findOneAndUpdate returns null, the document didn't exist before — it's a new user
+  const isNewUser = userResult === null;
+
+  if (isNewUser) {
+    sendMessage(
+      process.env.PAYMENT_PHONE!,
+      `👤 *New User Joined*\n\n` +
+      `📱 Phone: ${phone}\n` +
+      `🕐 Time: ${new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}\n\n` +
+      `They just sent their first message to AdSwap.`,
+    ).catch(err => console.error('[NewUser] Notify error:', err));
+  }
 
   // ── Check for banned users ─────────────────────────────────────────────────
   const user = await User.findOne({ phone });
@@ -46,82 +59,73 @@ export async function handleIncoming(
     return sendMessage(
       phone,
       `❌ Your account has been suspended.\n\n` +
-        `Reason: ${user.banReason || "Policy violation"}\n\n` +
-        `Contact support: ${process.env.SUPPORT_PHONE}`,
+      `Reason: ${user.banReason || 'Policy violation'}\n\n` +
+      `Contact support: ${process.env.SUPPORT_PHONE}`,
     );
   }
 
   // ── Global commands — work from any state ──────────────────────────────────
-  if (["MENU", "START", "HI", "HELLO", "HEY"].includes(upper)) {
+  if (['MENU', 'START', 'HI', 'HELLO', 'HEY'].includes(upper)) {
     await clearSession(phone);
     return showWelcome(phone);
   }
 
-  if (upper === "HELP") {
+  if (upper === 'HELP') {
     return showHelp(phone);
   }
 
-  if (upper.startsWith("CANCEL TXN-")) {
+  if (upper.startsWith('CANCEL TXN-')) {
     return handleBuy(phone, upper, session);
   }
 
   if (upper === 'CANCEL' && !upper.startsWith('CANCEL REQUEST ') && !upper.startsWith('CANCEL TXN-')) {
     await clearSession(phone);
-    return sendMessage(
-      phone,
-      "❌ Action cancelled.\n\nType *MENU* to start again.",
-    );
+    return sendMessage(phone, '❌ Action cancelled.\n\nType *MENU* to start again.');
   }
 
   // ── Notification commands ──────────────────────────────────────────────────
-  if (upper.startsWith("OPTOUT ")) {
-    const assetType = upper.replace("OPTOUT ", "").trim().toLowerCase();
+  if (upper.startsWith('OPTOUT ')) {
+    const assetType = upper.replace('OPTOUT ', '').trim().toLowerCase();
     return handleOptOut(phone, assetType);
   }
 
-  if (upper.startsWith("OPTIN ")) {
-    const assetType = upper.replace("OPTIN ", "").trim().toLowerCase();
+  if (upper.startsWith('OPTIN ')) {
+    const assetType = upper.replace('OPTIN ', '').trim().toLowerCase();
     return handleOptIn(phone, assetType);
   }
 
-  if (upper === "NOTIFICATIONS ON") {
+  if (upper === 'NOTIFICATIONS ON') {
     return handleNotificationsToggle(phone, true);
   }
 
-  if (upper === "NOTIFICATIONS OFF") {
+  if (upper === 'NOTIFICATIONS OFF') {
     return handleNotificationsToggle(phone, false);
   }
 
   // ── Request flow ───────────────────────────────────────────────────────────
-if (
-  upper === 'REQUEST' ||
-  upper === 'MY REQUESTS' ||
-  upper.startsWith('REQTYPE_') ||
-  upper.startsWith('RESPOND ') ||
-  upper.startsWith('CANCEL REQUEST ') ||
-  session?.step === 'request_details'
-) {
-  return handleRequest(phone, upper, session);
-}
+  if (
+    upper === 'REQUEST' ||
+    upper === 'MY REQUESTS' ||
+    upper.startsWith('REQTYPE_') ||
+    upper.startsWith('RESPOND ') ||
+    upper.startsWith('CANCEL REQUEST ') ||
+    session?.step === 'request_details'
+  ) {
+    return handleRequest(phone, upper, session);
+  }
 
   // ── Sell flow ──────────────────────────────────────────────────────────────
-  if (upper === "SELL" || session?.step?.startsWith("sell_")) {
+  if (upper === 'SELL' || session?.step?.startsWith('sell_')) {
     return handleSell(phone, upper, session, mediaId);
   }
 
   // ── Browse listings ────────────────────────────────────────────────────────
-  if (
-    upper === "LISTINGS" ||
-    upper.startsWith("VIEW ") ||
-    upper.startsWith("BR_")
-  ) {
+  if (upper === 'LISTINGS' || upper.startsWith('VIEW ') || upper.startsWith('BR_')) {
     return handleListings(phone, upper);
   }
 
   // ── Buy flow ───────────────────────────────────────────────────────────────
-  // Handles both LISTINGS (browse) and BUY [id] (initiate purchase).
-  // No session steps needed — buy is a single-shot command in the new flow.
-  if (upper.startsWith("BUY ")) {
+  if (upper.startsWith('BUY ')) {
     return handleBuy(phone, upper, session);
   }
 
@@ -131,7 +135,6 @@ if (
     return handleDispute(phone, upper, session, mediaId);
   }
 
-  
   // ── Rate seller ────────────────────────────────────────────────────────────
   if (upper.startsWith('RATE ')) {
     return handleRate(phone, upper);
@@ -140,12 +143,11 @@ if (
 
   // ── Media received outside a known flow ───────────────────────────────────
   if (
-    upper === "MEDIA_RECEIVED" &&
-    !session?.step?.startsWith("sell_") &&
-    !session?.step?.startsWith("dispute_")
+    upper === 'MEDIA_RECEIVED' &&
+    !session?.step?.startsWith('sell_') &&
+    !session?.step?.startsWith('dispute_')
   ) {
-    return sendMessage(
-      phone,
+    return sendMessage(phone,
       `I received an image, but I'm not sure what it's for.\n\nType *MENU* to see options.`,
     );
   }

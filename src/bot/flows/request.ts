@@ -1,6 +1,6 @@
 import { sendMessage, sendList } from '../../services/whatsapp';
 import { setSession, clearSession } from '../session';
-import { TYPE_LABELS, TYPE_MAP } from '../../config/constants';
+import { TYPE_LABELS } from '../../config/constants';
 import Request  from '../../models/Request';
 import User     from '../../models/User';
 import { generateId } from '../../utils/helpers';
@@ -38,7 +38,7 @@ async function broadcastRequest(req: any, requesterPhone: string): Promise<void>
     `📣 *Asset Wanted — ${emoji} ${label}*\n` +
     `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
     (req.details ? `📝 "${req.details}"\n\n` : '\n') +
-    `Someone on Swappa is looking to buy a *${label}*.\n\n` +
+    `Someone on AdSwap is looking to buy a *${label}*.\n\n` +
     `If you have one to sell, reply with:\n` +
     `\`RESPOND ${req.requestId}\`\n\n` +
     `─────────────────\n` +
@@ -53,6 +53,31 @@ async function broadcastRequest(req: any, requesterPhone: string): Promise<void>
   }
 
   console.log(`[REQUEST] Broadcast sent to ${users.length} users for ${req.requestId}`);
+}
+
+// ─── Notify PAYMENT_PHONE of new request ─────────────────────────────────────
+async function notifyPaymentPhoneOfRequest(
+  req:            any,
+  requesterPhone: string,
+  userCount:      number,
+): Promise<void> {
+  const label = TYPE_LABELS[req.type] ?? req.type;
+  const emoji = CATEGORY_EMOJI[req.type] ?? '📦';
+  const now   = new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' });
+
+  await sendMessage(
+    process.env.PAYMENT_PHONE!,
+    `📣 *New Asset Request*\n\n` +
+    `🆔 Ref: *${req.requestId}*\n` +
+    `${emoji} Asset: *${label}*\n` +
+    `📱 Requester: ${requesterPhone}\n` +
+    `🕐 Time: ${now}\n\n` +
+    (req.details
+      ? `📝 Requirements: _${req.details}_\n\n`
+      : `📝 No specific requirements\n\n`) +
+    `👥 Broadcast sent to *${userCount}* user(s)\n` +
+    `⏳ Request expires in 7 days`,
+  );
 }
 
 // ─── Notify respondents of cancellation ──────────────────────────────────────
@@ -70,8 +95,8 @@ async function notifyRespondentsOfCancellation(req: any): Promise<void> {
     users.map(u => sendMessage(u.phone,
       `ℹ️ *Request Cancelled*\n\n` +
       `The request for a *${label}* (Ref: ${req.requestId}) has been cancelled by the requester.\n\n` +
-      `If you were planning to list this asset, you're still welcome to — type *SELL* anytime.`
-    ))
+      `If you were planning to list this asset, you're still welcome to — type *SELL* anytime.`,
+    )),
   );
 }
 
@@ -96,7 +121,7 @@ export async function handleRequest(
       'Choose Type',
       [{
         title: 'Asset Types',
-        rows: Object.entries(TYPE_LABELS).map(([type, label]) => ({
+        rows:  Object.entries(TYPE_LABELS).map(([type, label]) => ({
           id:          `REQTYPE_${type}`,
           title:       `${CATEGORY_EMOJI[type] ?? '📦'} ${label}`,
           description: 'Tap to request this asset type',
@@ -118,7 +143,7 @@ export async function handleRequest(
       `Do you have any specific requirements? For example:\n` +
       `_"Need a Google Ads account with at least $5,000 spend, USD billing"_\n\n` +
       `Type your requirements below, or type *SKIP* to send the request without extra details.\n\n` +
-      `Type *CANCEL* to exit.`
+      `Type *CANCEL* to exit.`,
     );
   }
 
@@ -139,7 +164,7 @@ export async function handleRequest(
       return sendMessage(phone,
         `⚠️ You already have an open request (${existing.requestId}).\n\n` +
         `Cancel it first before creating a new one:\n` +
-        `\`CANCEL REQUEST ${existing.requestId}\``
+        `\`CANCEL REQUEST ${existing.requestId}\``,
       );
     }
 
@@ -158,6 +183,7 @@ export async function handleRequest(
 
     await clearSession(phone);
 
+    // Confirm to requester first
     await sendMessage(phone,
       `✅ *Request Sent!*\n\n` +
       `Asset: *${label}*\n` +
@@ -167,13 +193,24 @@ export async function handleRequest(
       `You'll get a message when someone responds.\n\n` +
       `Your request expires in *7 days*.\n\n` +
       `To cancel your request at any time:\n` +
-      `\`CANCEL REQUEST ${requestId}\``
+      `\`CANCEL REQUEST ${requestId}\``,
     );
 
-    // Broadcast after confirming to requester
-    broadcastRequest(newRequest, phone).catch(err =>
-      console.error('[REQUEST] Broadcast error:', err)
-    );
+    // Broadcast to sellers, then notify PAYMENT_PHONE with reach count
+    broadcastRequest(newRequest, phone)
+      .then(async () => {
+        // Count how many users received the broadcast (same query as broadcastRequest)
+        const userCount = await User.countDocuments({
+          isBanned: false,
+          phone:    { $ne: phone },
+          $or: [
+            { 'notifications.enabled': true, 'notifications.optedOutTypes': { $nin: [data.type] } },
+            { 'notifications.enabled': { $exists: false } },
+          ],
+        });
+        return notifyPaymentPhoneOfRequest(newRequest, phone, userCount);
+      })
+      .catch(err => console.error('[REQUEST] Broadcast/notify error:', err));
 
     return;
   }
@@ -191,7 +228,7 @@ export async function handleRequest(
     if (!req) {
       return sendMessage(phone,
         `❌ Request *${requestId}* not found or already closed.\n\n` +
-        `Type *MY REQUESTS* to see your active requests.`
+        `Type *MY REQUESTS* to see your active requests.`,
       );
     }
 
@@ -200,11 +237,11 @@ export async function handleRequest(
     await sendMessage(phone,
       `✅ Request *${requestId}* has been cancelled.\n\n` +
       `Any sellers who responded will be notified.\n\n` +
-      `Type *REQUEST* to send a new one anytime.`
+      `Type *REQUEST* to send a new one anytime.`,
     );
 
     notifyRespondentsOfCancellation(req).catch(err =>
-      console.error('[REQUEST] Cancel notify error:', err)
+      console.error('[REQUEST] Cancel notify error:', err),
     );
 
     return;
@@ -222,7 +259,7 @@ export async function handleRequest(
     if (!requests.length) {
       return sendMessage(phone,
         `📭 You have no open requests.\n\n` +
-        `Type *REQUEST* to send one.`
+        `Type *REQUEST* to send one.`,
       );
     }
 
@@ -239,7 +276,7 @@ export async function handleRequest(
 
     return sendMessage(phone,
       `📋 *Your Open Requests*\n\n` +
-      lines.join('\n\n')
+      lines.join('\n\n'),
     );
   }
 
@@ -251,7 +288,7 @@ export async function handleRequest(
     if (!req) {
       return sendMessage(phone,
         `❌ Request *${requestId}* is no longer available.\n\n` +
-        `Type *SELL* to list your asset directly.`
+        `Type *SELL* to list your asset directly.`,
       );
     }
 
@@ -263,7 +300,10 @@ export async function handleRequest(
     const label = TYPE_LABELS[req.type] ?? req.type;
 
     // Store the requestId in session so sell flow can reference it on completion
-    await setSession(phone, 'sell_type', { linkedRequestId: requestId, linkedRequestType: req.type });
+    await setSession(phone, 'sell_type', {
+      linkedRequestId:   requestId,
+      linkedRequestType: req.type,
+    });
 
     return sendMessage(phone,
       `✅ *Responding to request ${requestId}*\n\n` +
@@ -276,7 +316,7 @@ export async function handleRequest(
       `Enter numbers only — no commas or symbols.\n` +
       `Example: *75000*\n\n` +
       `Minimum: ₦1,000\n\n` +
-      `Type *CANCEL* to exit.`
+      `Type *CANCEL* to exit.`,
     );
   }
 }
