@@ -61,6 +61,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
   const [
     totalUsers, totalListings, activeListings, pendingVerification,
     totalTransactions, completedTransactions, pendingTransactions, openDisputes,
+    totalRequests, openRequests,
     revenue,
   ] = await Promise.all([
     User.countDocuments(),
@@ -71,6 +72,8 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
     Transaction.countDocuments({ status: 'completed' }),
     Transaction.countDocuments({ status: 'pending' }),
     Dispute.countDocuments({ status: 'open' }),
+    BuyRequest.countDocuments(),
+    BuyRequest.countDocuments({ status: 'open' }),
     Transaction.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$platformFee' } } },
@@ -82,6 +85,7 @@ router.get('/stats', adminAuth, async (_req: AdminRequest, res: Response) => {
     listings:     { total: totalListings, active: activeListings, pendingVerification },
     transactions: { total: totalTransactions, completed: completedTransactions, pending: pendingTransactions },
     disputes:     { open: openDisputes },
+    requests:     { total: totalRequests, open: openRequests },
     revenue:      { total: revenue[0]?.total || 0 },
   });
 });
