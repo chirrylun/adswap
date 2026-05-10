@@ -186,7 +186,7 @@ export async function handleBuy(
         `✅ *Purchase Request Received!*\n\n` +
         `Asset: *${typeLabel}*\n` +
         `Listing: *${listingId}*\n\n` +
-        `─────── Payment Amount ───────\n` +
+        `Payment Amount ───────\n\n` +
         `*You pay: ₦${listing.price.toLocaleString()}*\n\n` +
         `─────────────────\n` +
         `🔒 *How it works:*\n` +
