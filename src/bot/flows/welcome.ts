@@ -1,4 +1,4 @@
-import { sendButtons } from '../../services/whatsapp';
+import { sendButtons, sendMessage } from '../../services/whatsapp';
 import { clearSession } from '../session';
 
 export async function showWelcome(phone: string): Promise<void> {
@@ -21,9 +21,9 @@ export async function showWelcome(phone: string): Promise<void> {
     ]
   );
 }
-
 export async function showHelp(phone: string): Promise<void> {
-  await sendButtons(
+  // 1. Send the full help text as a plain message (no 1024-char limit)
+  await sendMessage(
     phone,
     `*How Swappa Works* 🛡️\n\n` +
     `*Buying an account?*\n` +
@@ -42,18 +42,24 @@ export async function showHelp(phone: string): Promise<void> {
     `*Other commands*\n` +
     `*LISTINGS* — Browse what's available\n` +
     `*CANCEL TXN-[id]* — Cancel a pending transaction\n` +
-    `*MENU* — Return to the main menu\n\n` +
+    `*MENU* — Return to the main menu\n` +
     `*REQUEST* — Ask the community for a specific asset\n` +
     `*MY REQUESTS* — View your open requests\n` +
     `*RESPOND [REF]* — Respond to someone's asset request\n` +
     `*MY LISTINGS* — View your active listings\n` +
-    `*REMOVE [ID]* — Remove one of your listings\n` +
+    `*REMOVE [ID]* — Remove one of your listings\n\n` +
     `🔒 All payments go through your chosen escrow — your money is never at risk.\n\n` +
     `Need help? Contact us: ${process.env.SUPPORT_PHONE}`,
+  );
+
+  // 2. Send the buttons as a short follow-up (body well under 1024 chars)
+  await sendButtons(
+    phone,
+    `What would you like to do next?`,
     [
-      { id: 'SELL',     title: '💰 Sell'    },
-      { id: 'LISTINGS', title: '🔍 Browse'  },
-      { id: 'MENU',     title: '🏠 Menu'    },
+      { id: 'SELL',     title: '💰 Sell'   },
+      { id: 'LISTINGS', title: '🔍 Browse' },
+      { id: 'MENU',     title: '🏠 Menu'   },
     ]
   );
 }
