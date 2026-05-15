@@ -14,7 +14,6 @@ import { generateId } from "../../utils/helpers";
 import { ISession } from "../../models/Session";
 
 // ─── Fee calculation ──────────────────────────────────────────────────────────
-// Fee is DEDUCTED from the seller's price.
 function calcFee(price: number): {
   fee: number;
   rate: number;
@@ -25,6 +24,13 @@ function calcFee(price: number): {
   const fee = Math.round(price * tier.rate);
   return { fee, rate: tier.rate * 100, sellerReceives: price - fee };
 }
+
+// ─── Escrow provider labels ───────────────────────────────────────────────────
+const ESCROW_LABELS: Record<string, string> = {
+  koji_agudah:      'Koji Agudah',
+  nauman_chaudhary: 'Nauman Chaudhary',
+  swappa_native:    'Swappa Native Escrow',
+};
 
 // ─── Question definitions per asset type ─────────────────────────────────────
 interface Question {
@@ -261,27 +267,80 @@ function getQuestions(type: string): Question[] {
       return [
         {
           step: "sell_q_play_age",
-          prompt: `*Step 1 of 5 — Account Age* 📅\n\nHow old is this Play Console account?\n\nExamples: _1 year_, _5 years_\n\nType your answer:`,
+          prompt: `*Step 1 of 11 — Account Age* 📅\n\nHow old is this Play Console account?\n\nExamples: _1 year_, _5 years_\n\nType your answer:`,
         },
         {
-          step: "sell_q_play_apps",
-          prompt: `*Step 2 of 5 — Published Apps* 📱\n\nHow many apps are published and what are their names?\n\nExamples: _2 apps — CleanMaster, VPN Pro_\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_play_revenue",
-          prompt: `*Step 3 of 5 — Monthly Revenue* 💵\n\nApproximate monthly revenue from all apps combined?\n\nEnter numbers only or type *NONE*.\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_play_suspended",
-          prompt: `*Step 4 of 5 — Account Status* ⚠️\n\nHas this Play Console account ever been suspended or had apps removed?`,
+          step: "sell_q_play_account_type",
+          prompt: `*Step 2 of 11 — Account Type* 🏢\n\nIs this a personal or organization account?`,
           buttons: [
-            { id: "PLAY_SUSP_NO", title: "✅ Clean account" },
-            { id: "PLAY_SUSP_YES", title: "⚠️ Had issues" },
+            { id: "PLAY_TYPE_PERSONAL", title: "👤 Personal" },
+            { id: "PLAY_TYPE_ORG", title: "🏢 Organization" },
           ],
         },
         {
-          ...COUNTRY_QUESTION,
-          prompt: COUNTRY_QUESTION.prompt.replace("Final Step", "Step 5 of 5"),
+          step: "sell_q_play_account_status",
+          prompt: `*Step 3 of 11 — Account Status* 🔒\n\nWhat is the current status of this account?`,
+          buttons: [
+            { id: "PLAY_STATUS_ACTIVE", title: "✅ Active" },
+            { id: "PLAY_STATUS_CLOSED", title: "❌ Closed" },
+          ],
+        },
+        {
+          step: "sell_q_play_apps",
+          prompt: `*Step 4 of 11 — Published Apps* 📱\n\nHow many apps are published and what are their names?\n\nExamples: _2 apps — CleanMaster, VPN Pro_\n\nType your answer:`,
+        },
+        {
+          step: "sell_q_play_revenue",
+          prompt: `*Step 5 of 11 — Monthly Revenue* 💵\n\nApproximate monthly revenue from all apps combined?\n\nEnter numbers only or type *NONE*.\n\nType your answer:`,
+        },
+        {
+          step: "sell_q_play_suspended",
+          prompt: `*Step 6 of 11 — Account Status* ⚠️\n\nHas this Play Console account ever been suspended?`,
+          buttons: [
+            { id: "PLAY_SUSP_NO", title: "✅ Never suspended" },
+            { id: "PLAY_SUSP_YES", title: "⚠️ Was suspended" },
+          ],
+        },
+        {
+          step: "sell_q_play_suspended_apps",
+          prompt: `*Step 7 of 11 — Suspended Apps* ⚠️\n\nAre any apps currently suspended on this account?`,
+          buttons: [
+            { id: "PLAY_SUSP_APPS_NO", title: "✅ No suspended apps" },
+            { id: "PLAY_SUSP_APPS_YES", title: "⚠️ Has suspended apps" },
+          ],
+        },
+        {
+          step: "sell_q_play_removed_apps",
+          prompt: `*Step 8 of 11 — Removed Apps* 🗑️\n\nHave any apps been removed or taken down from this account?`,
+          buttons: [
+            { id: "PLAY_REM_APPS_NO", title: "✅ No removed apps" },
+            { id: "PLAY_REM_APPS_YES", title: "⚠️ Has removed apps" },
+          ],
+        },
+        {
+          step: "sell_q_play_transferred_apps",
+          prompt: `*Step 9 of 11 — Transferred Apps* 🔄\n\nHave any apps been transferred into this account from another developer?`,
+          buttons: [
+            { id: "PLAY_TRANS_NO", title: "✅ No transferred apps" },
+            { id: "PLAY_TRANS_YES", title: "🔄 Has transferred apps" },
+          ],
+        },
+        {
+          step: "sell_q_play_keystore",
+          prompt: `*Step 10 of 11 — Keystore Availability* 🔑\n\nIs the keystore file available for the apps on this account?`,
+          buttons: [
+            { id: "PLAY_KEY_YES", title: "✅ Keystore available" },
+            { id: "PLAY_KEY_NO", title: "❌ Not available" },
+          ],
+        },
+        {
+          step: "sell_q_play_keystore_reset",
+          prompt: `*Step 11 of 11 — Keystore Reset* 🔄\n\nIs a keystore reset possible on this account? (Google Play allows this under certain conditions)`,
+          buttons: [
+            { id: "PLAY_KEY_RST_YES", title: "✅ Reset possible" },
+            { id: "PLAY_KEY_RST_NO", title: "❌ Not possible" },
+            { id: "PLAY_KEY_RST_UNK", title: "❓ Not sure" },
+          ],
         },
       ];
 
@@ -381,14 +440,19 @@ function buildDescription(type: string, data: Record<string, any>): string {
       );
 
     case "play_console":
-      return (
-        [
-          `Age: ${data.sell_q_play_age}`,
-          `Apps: ${data.sell_q_play_apps}`,
-          `Monthly revenue: ${data.sell_q_play_revenue?.toUpperCase() === "NONE" ? "No revenue" : `$${data.sell_q_play_revenue}/mo`}`,
-          `Suspended: ${yesNo(data.sell_q_play_suspended, "PLAY_SUSP_YES")}`,
-        ].join(" | ") + country
-      );
+      return [
+        `Age: ${data.sell_q_play_age}`,
+        `Type: ${data.sell_q_play_account_type === "PLAY_TYPE_ORG" ? "Organization" : "Personal"}`,
+        `Status: ${data.sell_q_play_account_status === "PLAY_STATUS_ACTIVE" ? "Active" : "Closed"}`,
+        `Apps: ${data.sell_q_play_apps}`,
+        `Monthly revenue: ${data.sell_q_play_revenue?.toUpperCase() === "NONE" ? "No revenue" : `$${data.sell_q_play_revenue}/mo`}`,
+        `Suspended: ${yesNo(data.sell_q_play_suspended, "PLAY_SUSP_YES")}`,
+        `Suspended apps: ${yesNo(data.sell_q_play_suspended_apps, "PLAY_SUSP_APPS_YES")}`,
+        `Removed apps: ${yesNo(data.sell_q_play_removed_apps, "PLAY_REM_APPS_YES")}`,
+        `Transferred apps: ${yesNo(data.sell_q_play_transferred_apps, "PLAY_TRANS_YES")}`,
+        `Keystore available: ${yesNo(data.sell_q_play_keystore, "PLAY_KEY_YES")}`,
+        `Keystore reset: ${data.sell_q_play_keystore_reset === "PLAY_KEY_RST_YES" ? "Possible" : data.sell_q_play_keystore_reset === "PLAY_KEY_RST_NO" ? "Not possible" : "Unsure"}`,
+      ].join(" | ");
 
     case "gift_card":
       return [
@@ -403,7 +467,6 @@ function buildDescription(type: string, data: Record<string, any>): string {
 }
 
 // ─── Map question answers to Listing model fields ─────────────────────────────
-// Only includes fields that exist on the IListing interface.
 function buildListingFields(
   type: string,
   data: Record<string, any>,
@@ -486,9 +549,27 @@ function buildListingFields(
       return {
         ...country,
         playConsoleAge: data.sell_q_play_age,
+        playConsoleAccountType:
+          data.sell_q_play_account_type === "PLAY_TYPE_ORG"
+            ? "organization"
+            : "personal",
+        playConsoleAccountStatus:
+          data.sell_q_play_account_status === "PLAY_STATUS_ACTIVE"
+            ? "active"
+            : "closed",
         playConsoleApps: data.sell_q_play_apps,
         playConsoleRevenue: data.sell_q_play_revenue,
         playConsoleSuspended: data.sell_q_play_suspended === "PLAY_SUSP_YES",
+        playConsoleSuspendedApps:
+          data.sell_q_play_suspended_apps === "PLAY_SUSP_APPS_YES",
+        playConsoleRemovedApps:
+          data.sell_q_play_removed_apps === "PLAY_REM_APPS_YES",
+        playConsoleTransferredApps:
+          data.sell_q_play_transferred_apps === "PLAY_TRANS_YES",
+        playConsoleKeystoreAvailable:
+          data.sell_q_play_keystore === "PLAY_KEY_YES",
+        playConsoleKeystoreReset:
+          data.sell_q_play_keystore_reset === "PLAY_KEY_RST_YES",
       };
 
     case "gift_card":
@@ -519,7 +600,7 @@ function screenshotGuide(type: string): string {
     case "adsense_site":
       return `📸 *Required screenshots:*\n1. AdSense dashboard (account status visible)\n2. Payment history page\n3. Account email visible`;
     case "play_console":
-      return `📸 *Required screenshots:*\n1. Play Console dashboard showing published apps\n2. Revenue or stats overview\n3. Account email visible`;
+      return `📸 *Required screenshots:*\n1. Play Console dashboard showing published apps\n2. Revenue or stats overview\n3. Account email visible\n4. App status page (showing any suspensions or removals if applicable)`;
     case "gift_card":
       return `📸 *Required screenshots:*\n1. Front of the gift card (with code hidden/blurred)\n2. Balance check screenshot if available\n3. Receipt or purchase proof`;
     default:
@@ -537,8 +618,10 @@ function buildAdminAlert(
   sellerReceives: number,
   buyerPays: number,
   fee: number,
+  escrowProvider: string,
 ): string {
-  const typeLabel = TYPE_LABELS[data.type] ?? data.type;
+  const typeLabel    = TYPE_LABELS[data.type] ?? data.type;
+  const escrowLabel  = ESCROW_LABELS[escrowProvider] ?? escrowProvider;
 
   let details = "";
   switch (data.type) {
@@ -550,9 +633,7 @@ function buildAdminAlert(
         extra.googleAdsNiche && `🏷️ Niche: ${extra.googleAdsNiche}`,
         extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
         `⚠️ Suspended: ${extra.googleAdsSuspended ? "Yes" : "No"}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
       break;
     case "facebook_ad_account":
       details = [
@@ -562,9 +643,7 @@ function buildAdminAlert(
         `📊 Pixel: ${extra.metaPixelAttached ? "Yes" : "No"}`,
         extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
         `⚠️ Restricted: ${extra.metaRestricted ? "Yes" : "No"}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
       break;
     case "twitter_account":
       details = [
@@ -574,9 +653,7 @@ function buildAdminAlert(
         extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
         `💰 Monetized: ${extra.twitterMonetized ? "Yes" : "No"}`,
         `⚠️ Suspended: ${extra.twitterSuspended ? "Yes" : "No"}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
       break;
     case "instagram_account":
       details = [
@@ -586,9 +663,7 @@ function buildAdminAlert(
         extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
         `💰 Monetized: ${extra.instagramMonetized ? "Yes" : "No"}`,
         `⚠️ Restricted: ${extra.instagramRestricted ? "Yes" : "No"}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
       break;
     case "tiktok_account":
       details = [
@@ -598,44 +673,40 @@ function buildAdminAlert(
         extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
         `💰 Monetized: ${extra.tiktokMonetized ? "Yes" : "No"}`,
         `🔴 LIVE access: ${extra.tiktokLives ? "Yes" : "No"}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
       break;
     case "adsense_site":
       details = [
         extra.adsenseAge && `📅 Age: ${extra.adsenseAge}`,
-        extra.adsenseMonthlyEarnings &&
-          `💰 Earnings: $${extra.adsenseMonthlyEarnings}/mo`,
-        extra.adsensePaymentStatus &&
-          `💵 Payment: ${extra.adsensePaymentStatus}`,
+        extra.adsenseMonthlyEarnings && `💰 Earnings: $${extra.adsenseMonthlyEarnings}/mo`,
+        extra.adsensePaymentStatus && `💵 Payment: ${extra.adsensePaymentStatus}`,
         extra.adsenseSiteUrl && `🌐 Site: ${extra.adsenseSiteUrl}`,
         extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
         `⚠️ Violations: ${extra.adsenseViolations ? "Yes" : "No"}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
       break;
     case "play_console":
       details = [
         extra.playConsoleAge && `📅 Age: ${extra.playConsoleAge}`,
+        extra.playConsoleAccountType && `🏢 Type: ${extra.playConsoleAccountType}`,
+        extra.playConsoleAccountStatus && `🔒 Status: ${extra.playConsoleAccountStatus}`,
         extra.playConsoleApps && `📱 Apps: ${extra.playConsoleApps}`,
-        extra.playConsoleRevenue &&
-          `💵 Revenue: $${extra.playConsoleRevenue}/mo`,
+        extra.playConsoleRevenue && `💵 Revenue: $${extra.playConsoleRevenue}/mo`,
         extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
-        `⚠️ Suspended: ${extra.playConsoleSuspended ? "Yes" : "No"}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+        `⚠️ Acct suspended: ${extra.playConsoleSuspended ? "Yes" : "No"}`,
+        `⚠️ Suspended apps: ${extra.playConsoleSuspendedApps ? "Yes" : "No"}`,
+        `🗑️ Removed apps: ${extra.playConsoleRemovedApps ? "Yes" : "No"}`,
+        `🔄 Transferred apps: ${extra.playConsoleTransferredApps ? "Yes" : "No"}`,
+        `🔑 Keystore available: ${extra.playConsoleKeystoreAvailable ? "Yes" : "No"}`,
+        `🔄 Keystore reset: ${extra.playConsoleKeystoreReset ? "Possible" : "Not possible"}`,
+      ].filter(Boolean).join("\n");
       break;
     case "gift_card":
       details = [
         extra.giftCardBrand && `🎁 Brand: ${extra.giftCardBrand}`,
         extra.giftCardValue && `💵 Value: ${extra.giftCardValue}`,
         extra.giftCardCurrency && `🌍 Region: ${extra.giftCardCurrency}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      ].filter(Boolean).join("\n");
       break;
   }
 
@@ -645,6 +716,7 @@ function buildAdminAlert(
     `📦 ${typeLabel}\n` +
     `💰 Seller asking: ₦${sellerReceives.toLocaleString()}\n` +
     `💳 Buyer pays: ₦${buyerPays.toLocaleString()} _(incl. ₦${fee.toLocaleString()} fee)_\n` +
+    `🏦 Escrow: *${escrowLabel}*\n` +
     `📱 Seller: ${phone}\n` +
     `📸 Screenshots: ${screenshots}\n\n` +
     `${details}\n\n` +
@@ -698,7 +770,7 @@ export async function handleSell(
         `8️⃣  TikTok Account\n\n` +
         `Reply with a number (1–8)\n\n` +
         `💡 *Listing is free.* Swappa adds a small service fee to the buyer's price — you receive your full asking amount.\n\n` +
-        `🔒 All sales are processed through *Koji Agudah escrow* for your protection.\n\n` +
+        `🔒 All sales are processed through escrow for your protection.\n\n` +
         `Type *CANCEL* to go back.`,
     );
   }
@@ -735,14 +807,47 @@ export async function handleSell(
       );
     }
     const { fee, rate, sellerReceives } = calcFee(price);
-    await setSession(phone, "sell_questions", { type: data.type, price });
-    return sendMessage(
+    await setSession(phone, "sell_escrow", { ...data, price });
+    return sendButtons(
       phone,
       `✅ *Price set: ₦${price.toLocaleString()}*\n\n` +
         `Buyer pays: *₦${price.toLocaleString()}*\n` +
         `Swappa fee (${rate}%): *₦${fee.toLocaleString()}* — deducted from your payout\n` +
         `You receive: *₦${sellerReceives.toLocaleString()}* after fee\n\n` +
-        `🔒 Payment is handled via *Koji Agudah escrow* — funds are held securely until the buyer confirms access.\n\n` +
+        `Now choose your preferred escrow provider.\n` +
+        `The buyer's funds will be held by them until you both confirm the deal.`,
+      [
+        { id: "ESCROW_KOJI",    title: "🔒 Koji Agudah"       },
+        { id: "ESCROW_NAUMAN",  title: "🔒 Nauman Chaudhary"  },
+        { id: "ESCROW_SWAPPA",  title: "🔒 Swappa Native"     },
+      ],
+    );
+  }
+
+  // ── Select escrow ──────────────────────────────────────────────────────────
+  if (step === "sell_escrow") {
+    const escrowMap: Record<string, string> = {
+      ESCROW_KOJI:   "koji_agudah",
+      ESCROW_NAUMAN: "nauman_chaudhary",
+      ESCROW_SWAPPA: "swappa_native",
+    };
+    const escrowProvider = escrowMap[text];
+    if (!escrowProvider) {
+      return sendButtons(
+        phone,
+        `❌ Please choose an escrow provider:`,
+        [
+          { id: "ESCROW_KOJI",   title: "🔒 Koji Agudah"      },
+          { id: "ESCROW_NAUMAN", title: "🔒 Nauman Chaudhary" },
+          { id: "ESCROW_SWAPPA", title: "🔒 Swappa Native"    },
+        ],
+      );
+    }
+    await setSession(phone, "sell_questions", { ...data, escrowProvider });
+    return sendMessage(
+      phone,
+      `✅ *${ESCROW_LABELS[escrowProvider]}* selected as your escrow provider.\n\n` +
+        `🔒 Payment is handled via *${ESCROW_LABELS[escrowProvider]}* — funds are held securely until the buyer confirms access.\n\n` +
         `Now I'll ask a few quick questions about the account.\n` +
         `This helps buyers trust your listing.\n\n` +
         `Type *CANCEL* at any time to exit.`,
@@ -854,23 +959,24 @@ export async function handleSell(
         const expiresAt = new Date(
           Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
         );
-        const extraFields = buildListingFields(data.type, data);
-        const buyerPays = data.price;
+        const extraFields   = buildListingFields(data.type, data);
+        const buyerPays     = data.price;
+        const escrowProvider = data.escrowProvider ?? "koji_agudah";
 
-        // All fields mapped to exact IListing schema properties
         await Listing.create({
           listingId,
           seller: user._id,
           type: data.type,
-          price: data.price, // what buyer pays (the listed price)
-          platformFee: fee, // Swappa cut deducted from seller
-          buyerPays: buyerPays, // buyer pays the listed price exactly
+          price: data.price,
+          platformFee: fee,
+          buyerPays,
           sellerReceives,
+          escrowProvider,
           description: data.description,
           screenshotUrls: screenshots,
           status: "pending_verification",
           expiresAt,
-          ...extraFields, // type-specific fields from buildListingFields
+          ...extraFields,
         });
 
         const linkedRequestId = data.linkedRequestId;
@@ -898,6 +1004,7 @@ export async function handleSell(
             sellerReceives,
             buyerPays,
             fee,
+            escrowProvider,
           ),
         ).catch((err) => console.error("[SELL] Admin notify error:", err));
 
@@ -910,10 +1017,11 @@ export async function handleSell(
             `Type: ${TYPE_LABELS[data.type]}\n` +
             `Your asking price: ₦${data.price.toLocaleString()}\n` +
             `Buyer pays: ₦${data.price.toLocaleString()}\n` +
-            `You receive: ₦${sellerReceives.toLocaleString()} _(after ₦${fee.toLocaleString()} Swappa fee)_\n\n` +
+            `You receive: ₦${sellerReceives.toLocaleString()} _(after ₦${fee.toLocaleString()} Swappa fee)_\n` +
+            `Escrow: *${ESCROW_LABELS[escrowProvider]}*\n\n` +
             `⏳ Admin will review your listing within *24 hours*.\n` +
             `You'll get a WhatsApp notification once it goes live.\n\n` +
-            `🔒 When a buyer is ready, payment will be handled through *Koji Agudah escrow* — your funds are protected until the deal is confirmed.\n\n` +
+            `🔒 When a buyer is ready, payment will be handled through *${ESCROW_LABELS[escrowProvider]}* — your funds are protected until the deal is confirmed.\n\n` +
             `Questions? Type *HELP*`,
         );
       } catch (err) {

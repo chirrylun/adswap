@@ -17,19 +17,24 @@ export type ListingStatus =
   | 'expired'
   | 'rejected';
 
+export type EscrowProvider = 'koji_agudah' | 'nauman_chaudhary' | 'swappa_native';
+
 export interface IListing extends Document {
   listingId:        string;
   seller:           mongoose.Types.ObjectId;
   type:             ListingType;
 
   // ── Pricing ────────────────────────────────────────────────────────────────
-  price:            number;   // seller's asking price (what they receive)
-  platformFee:      number;   // Swappa fee added on top
-  buyerPays:        number;   // price + platformFee — what buyer actually pays
-  sellerReceives:   number;   // what the seller receives
+  price:            number;
+  platformFee:      number;
+  buyerPays:        number;
+  sellerReceives:   number;
 
   description:      string;
   niche?:           string;
+
+  // ── Escrow ─────────────────────────────────────────────────────────────────
+  escrowProvider:   EscrowProvider;
 
   // ── Shared ─────────────────────────────────────────────────────────────────
   accountCountry?:  string;
@@ -79,10 +84,17 @@ export interface IListing extends Document {
   adsenseViolations?:      boolean;
 
   // ── Play Console specific ──────────────────────────────────────────────────
-  playConsoleApps?:      string;
-  playConsoleRevenue?:   string;
-  playConsoleSuspended?: boolean;
-  playConsoleAge?:       string;
+  playConsoleApps?:           string;
+  playConsoleRevenue?:        string;
+  playConsoleSuspended?:      boolean;
+  playConsoleAge?:            string;
+  playConsoleAccountType?:    string;   // 'personal' | 'organization'
+  playConsoleAccountStatus?:  string;   // 'active' | 'closed'
+  playConsoleSuspendedApps?:  boolean;
+  playConsoleRemovedApps?:    boolean;
+  playConsoleTransferredApps?:boolean;
+  playConsoleKeystoreAvailable?: boolean;
+  playConsoleKeystoreReset?:  boolean;
 
   // ── Gift Card specific ─────────────────────────────────────────────────────
   giftCardBrand?:    string;
@@ -115,13 +127,21 @@ const ListingSchema = new Schema<IListing>(
     },
 
     // Pricing
-    price:       { type: Number, required: true, min: 1000 },
-    platformFee: { type: Number, required: true },
-    buyerPays:   { type: Number, required: true },
-    sellerReceives: {type: Number, required: true},
+    price:          { type: Number, required: true, min: 1000 },
+    platformFee:    { type: Number, required: true },
+    buyerPays:      { type: Number, required: true },
+    sellerReceives: { type: Number, required: true },
 
     description: { type: String, required: true, maxlength: 600 },
     niche:       { type: String, maxlength: 100 },
+
+    // Escrow
+    escrowProvider: {
+      type:     String,
+      required: true,
+      enum:     ['koji_agudah', 'nauman_chaudhary', 'swappa_native'],
+      default:  'koji_agudah',
+    },
 
     // Shared
     accountCountry: { type: String },
@@ -171,10 +191,17 @@ const ListingSchema = new Schema<IListing>(
     adsenseViolations:      { type: Boolean },
 
     // Play Console
-    playConsoleApps:      { type: String },
-    playConsoleRevenue:   { type: String },
-    playConsoleSuspended: { type: Boolean },
-    playConsoleAge:       { type: String },
+    playConsoleApps:            { type: String },
+    playConsoleRevenue:         { type: String },
+    playConsoleSuspended:       { type: Boolean },
+    playConsoleAge:             { type: String },
+    playConsoleAccountType:     { type: String },
+    playConsoleAccountStatus:   { type: String },
+    playConsoleSuspendedApps:   { type: Boolean },
+    playConsoleRemovedApps:     { type: Boolean },
+    playConsoleTransferredApps: { type: Boolean },
+    playConsoleKeystoreAvailable: { type: Boolean },
+    playConsoleKeystoreReset:   { type: Boolean },
 
     // Gift Card
     giftCardBrand:    { type: String },
@@ -192,7 +219,6 @@ const ListingSchema = new Schema<IListing>(
   { timestamps: true },
 );
 
-// TTL index — MongoDB auto-deletes expired listings
 ListingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.model<IListing>('Listing', ListingSchema);

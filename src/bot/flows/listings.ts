@@ -278,7 +278,7 @@ async function showCategoryListings(phone: string, rawShort: string): Promise<vo
     phone,
     `${CATEGORY_EMOJI[type] ?? '📦'} *${label}*\n\n` +
     `${listings.length} listing${listings.length !== 1 ? 's' : ''} available.\n` +
-    `Tap any listing to view full details and buy:\n\n` +
+    `Tap any listing to view full details and make an offer to the seller:\n\n` +
     `_(Type *LISTINGS* to go back to categories)_`,
     'View Listings',
     [{ title: 'Available Now', rows }],
