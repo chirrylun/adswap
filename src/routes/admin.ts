@@ -180,6 +180,27 @@ router.post('/listings/:id/reject', adminAuth, async (req: AdminRequest, res: Re
   res.json({ success: true });
 });
 
+router.post('/listings/:id/remove', adminAuth, async (req: AdminRequest, res: Response) => {
+  const listing = await Listing.findById(req.params.id);
+  if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+  // Block removal if there's a pending transaction
+  const ongoingTxn = await Transaction.findOne({
+    listingId: listing.listingId,
+    status:    'pending',
+  });
+
+  if (ongoingTxn) {
+    return res.status(409).json({
+      error:         'Cannot remove listing with an ongoing transaction',
+      transactionId: ongoingTxn.transactionId,
+    });
+  }
+
+  await Listing.updateOne({ _id: listing._id }, { $set: { status: 'expired' } });
+  res.json({ success: true });
+});
+
 // ── Transactions ──────────────────────────────────────────────────────────────
 router.get('/transactions', adminAuth, async (req: AdminRequest, res: Response) => {
   const { status, page = 1, limit = 20 } = req.query;

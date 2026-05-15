@@ -3,7 +3,7 @@ import { getSession, clearSession } from './session';
 import { showWelcome, showHelp }    from './flows/welcome';
 import { handleSell }               from './flows/sell';
 import { handleBuy }                from './flows/buy';
-import { handleListings }           from './flows/listings';
+import { handleListings, handleMyListings, handleRemoveListing }           from './flows/listings';
 import { handleRequest }            from './flows/request';
 import {
   handleMakeOffer,
@@ -148,6 +148,16 @@ export async function handleIncoming(
   ) {
     return handleRequest(phone, upper, session);
   }
+
+  // ── My listings ────────────────────────────────────────────────────────────
+if (upper === 'MY LISTINGS') {
+  return handleMyListings(phone);
+}
+
+// ── Remove listing ─────────────────────────────────────────────────────────
+if (upper.startsWith('REMOVE ')) {
+  return handleRemoveListing(phone, upper);
+}
 
   // ── Sell flow ──────────────────────────────────────────────────────────────
   if (upper === 'SELL' || session?.step?.startsWith('sell_')) {

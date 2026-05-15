@@ -1,6 +1,8 @@
 import { sendMessage, sendList } from '../../services/whatsapp';
 import { TYPE_LABELS } from '../../config/constants';
 import Listing, { ListingType } from '../../models/Listing';
+import User from '../../models/User';
+import Transaction from '../../models/Transaction';
 
 // ─── Short code maps (row IDs must be ≤20 chars) ─────────────────────────────
 
@@ -353,4 +355,116 @@ export async function handleListings(
 
   // Step 1 — category picker
   return showCategoryPicker(phone);
+}
+
+export async function handleMyListings(phone: string): Promise<void> {
+  const user = await User.findOne({ phone });
+  if (!user) return sendMessage(phone, `❌ No account found. Type *MENU* to start.`);
+
+  const listings = await Listing.find({
+    seller: user._id,
+    status: { $in: ['pending_verification', 'active'] },
+  }).sort({ createdAt: -1 }).limit(10);
+
+  if (!listings.length) {
+    return sendMessage(phone,
+      `📭 You have no active listings.\n\n` +
+      `Type *SELL* to list an asset.`,
+    );
+  }
+
+  const lines = listings.map(l => {
+    const label      = TYPE_LABELS[l.type] ?? l.type;
+    const statusIcon = l.status === 'active' ? '🟢' : '⏳';
+    const statusText = l.status === 'active' ? 'Live' : 'Pending review';
+    return (
+      `${statusIcon} *${label}*\n` +
+      `ID: ${l.listingId}\n` +
+      `Price: ₦${l.price.toLocaleString()} _(you receive ₦${l.sellerReceives?.toLocaleString() ?? '—'})_\n` +
+      `Status: ${statusText}\n` +
+      `Views: ${l.viewCount}\n` +
+      `Remove: \`REMOVE ${l.listingId}\``
+    );
+  });
+
+  return sendMessage(phone,
+    `📋 *Your Listings*\n\n` +
+    lines.join('\n\n'),
+  );
+}
+
+
+// ─── Remove listing ───────────────────────────────────────────────────────────
+export async function handleRemoveListing(
+  phone: string,
+  text:  string,
+): Promise<void> {
+  const listingId = text.replace('REMOVE ', '').trim();
+
+  if (!listingId) {
+    return sendMessage(phone,
+      `To remove a listing, send:\n` +
+      `\`REMOVE [Listing ID]\`\n\n` +
+      `Example: \`REMOVE ADS-12345\``,
+    );
+  }
+
+  const user = await User.findOne({ phone });
+  if (!user) return sendMessage(phone, `❌ No account found. Type *MENU* to start.`);
+
+  const listing = await Listing.findOne({
+    listingId: listingId.toUpperCase(),
+    seller:    user._id,
+  });
+
+  if (!listing) {
+    return sendMessage(phone,
+      `❌ Listing *${listingId.toUpperCase()}* not found or doesn't belong to you.\n\n` +
+      `Type *MY LISTINGS* to see your active listings.`,
+    );
+  }
+
+  if (['sold', 'rejected', 'expired'].includes(listing.status)) {
+    return sendMessage(phone,
+      `❌ Listing *${listingId.toUpperCase()}* is already ${listing.status} and cannot be removed.`,
+    );
+  }
+
+  // Check for ongoing transactions
+  const ongoingTxn = await Transaction.findOne({
+    listingId: listing.listingId,
+    status:    'pending',
+  });
+
+  if (ongoingTxn) {
+    return sendMessage(phone,
+      `❌ *Cannot remove listing ${listing.listingId}*\n\n` +
+      `There is an ongoing transaction for this listing:\n` +
+      `Transaction: *${ongoingTxn.transactionId}*\n\n` +
+      `The listing can only be removed after the transaction is completed or cancelled.\n\n` +
+      `If you need help, contact support: ${process.env.SUPPORT_PHONE}`,
+    );
+  }
+
+  // Safe to remove
+  await Listing.updateOne(
+    { _id: listing._id },
+    { $set: { status: 'expired' } },
+  );
+
+  // Notify admin
+  await sendMessage(
+    process.env.SUPPORT_PHONE!,
+    `🗑️ *Listing Removed by Seller*\n\n` +
+    `Listing: *${listing.listingId}*\n` +
+    `Type: ${TYPE_LABELS[listing.type] ?? listing.type}\n` +
+    `Seller: ${phone}\n\n` +
+    `Status set to expired. No action needed.`,
+  ).catch(() => {});
+
+  return sendMessage(phone,
+    `✅ *Listing Removed*\n\n` +
+    `Listing *${listing.listingId}* has been removed from the marketplace.\n\n` +
+    `Type *SELL* to create a new listing anytime.`,
+  );
 }

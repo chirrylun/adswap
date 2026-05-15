@@ -9,7 +9,7 @@ export async function showWelcome(phone: string): Promise<void> {
     `The safest way to buy and sell digital accounts in Nigeria.\n\n` +
     `Whether you're selling a Google Ads account, TikTok page, Instagram account, Play Console, gift cards and more — we've got you covered.\n\n` +
     `🔒 *Your money is always protected*\n` +
-    `Every transaction goes through *Koji Agudah escrow* — funds are held safely and only released when you confirm you've received full access.\n\n` +
+    `Every transaction goes through *Koji Agudah*, *Nauman Chaudhary* or "Swappa's native escrow* — funds are held safely and only released when you confirm you've received full access.\n\n` +
     `✅ Every listing is manually verified before going live\n` +
     `⚡ Disputes resolved within 48 hours\n` +
     `💬 Real support when you need it\n\n` +
@@ -46,7 +46,9 @@ export async function showHelp(phone: string): Promise<void> {
     `*REQUEST* — Ask the community for a specific asset\n` +
     `*MY REQUESTS* — View your open requests\n` +
     `*RESPOND [REF]* — Respond to someone's asset request\n` +
-    `🔒 All payments go through *Koji Agudah escrow* — your money is never at risk.\n\n` +
+    `*MY LISTINGS* — View your active listings\n` +
+    `*REMOVE [ID]* — Remove one of your listings\n` +
+    `🔒 All payments go through your chosen escrow — your money is never at risk.\n\n` +
     `Need help? Contact us: ${process.env.SUPPORT_PHONE}`,
     [
       { id: 'SELL',     title: '💰 Sell'    },
