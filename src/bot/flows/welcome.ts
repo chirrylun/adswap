@@ -47,7 +47,8 @@ export async function showHelp(phone: string): Promise<void> {
     `*MENU* — Return to the main menu\n\n` +
     `🔒 All payments go through escrow — your money is never at risk.\n\n` +
     `💬 *Have a question? Chat with us directly:*\n` +
-    `https://wa.me/2347026131523`
+    `https://wa.me/2347026131523\n\n` +
+    `🌐 *Learn more:* www.swappa.chat`
   );
 
   await sendButtons(
