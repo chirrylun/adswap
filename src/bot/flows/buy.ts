@@ -6,6 +6,7 @@ import Transaction from "../../models/Transaction";
 import User from "../../models/User";
 import { generateId } from "../../utils/helpers";
 import { ISession } from "../../models/Session";
+import { track } from "../../services/analytics";
 
 const buyLocks = new Set<string>();
 
@@ -100,47 +101,56 @@ export async function handleBuy(
     );
   }
 
-  if (text.startsWith('CANCEL TXN-')) {
-  const transactionId = text.replace('CANCEL ', '').trim();
+  if (text.startsWith("CANCEL TXN-")) {
+    const transactionId = text.replace("CANCEL ", "").trim();
 
-  const buyer = await User.findOne({ phone });
-  if (!buyer) {
-    return sendMessage(phone, `❌ No account found. Type *MENU* to start.`);
-  }
+    const buyer = await User.findOne({ phone });
+    if (!buyer) {
+      return sendMessage(phone, `❌ No account found. Type *MENU* to start.`);
+    }
 
-  const txn = await Transaction.findOne({
-    transactionId,
-    buyer:  buyer._id,
-    status: 'pending',
-  });
+    const txn = await Transaction.findOne({
+      transactionId,
+      buyer: buyer._id,
+      status: "pending",
+    });
 
-  if (!txn) {
-    return sendMessage(phone,
-      `❌ Transaction *${transactionId}* not found or already closed.\n\n` +
-      `It may have already been cancelled or completed.`
+    if (!txn) {
+      return sendMessage(
+        phone,
+        `❌ Transaction *${transactionId}* not found or already closed.\n\n` +
+          `It may have already been cancelled or completed.`,
+      );
+    }
+
+    track("buy_cancelled", phone, { transactionId });
+
+    await Transaction.updateOne(
+      { _id: txn._id },
+      { $set: { status: "cancelled", cancelledAt: new Date() } },
+    );
+
+    // Notify payment handler
+    await sendMessage(
+      process.env.PAYMENT_PHONE!,
+      `🚫 *Transaction Cancelled by Buyer*\n\n` +
+        `Transaction: *${transactionId}*\n` +
+        `Buyer: ${phone}\n\n` +
+        `No further action needed unless escrow was already initiated.`,
+    ).catch((err) =>
+      console.error(
+        "[Cancel] Payment notify error:",
+        err?.response?.data ?? err?.message ?? err,
+      ),
+    );
+
+    return sendMessage(
+      phone,
+      `✅ Transaction *${transactionId}* has been cancelled.\n\n` +
+        `If you already sent funds to escrow, contact support immediately.\n\n` +
+        `Type *LISTINGS* to browse other listings.`,
     );
   }
-
-  await Transaction.updateOne(
-    { _id: txn._id },
-    { $set: { status: 'cancelled', cancelledAt: new Date() } }
-  );
-
-  // Notify payment handler
-  await sendMessage(
-    process.env.PAYMENT_PHONE!,
-    `🚫 *Transaction Cancelled by Buyer*\n\n` +
-    `Transaction: *${transactionId}*\n` +
-    `Buyer: ${phone}\n\n` +
-    `No further action needed unless escrow was already initiated.`
-  ).catch(err => console.error('[Cancel] Payment notify error:', err?.response?.data ?? err?.message ?? err));
-
-  return sendMessage(phone,
-    `✅ Transaction *${transactionId}* has been cancelled.\n\n` +
-    `If you already sent funds to escrow, contact support immediately.\n\n` +
-    `Type *LISTINGS* to browse other listings.`
-  );
-}
 
   // ── BUY [listingId] ────────────────────────────────────────────────────────
   if (text.startsWith("BUY ")) {
@@ -194,14 +204,20 @@ export async function handleBuy(
           phone,
           `⚠️ You already have an open transaction for this listing.\n\n` +
             `Transaction: *${existing.transactionId}*\n\n` +
-           `Our team will be in touch.\n\n` +
-`To cancel this transaction, send:\n` +
-`\`CANCEL ${existing.transactionId}\``,
+            `Our team will be in touch.\n\n` +
+            `To cancel this transaction, send:\n` +
+            `\`CANCEL ${existing.transactionId}\``,
         );
       }
 
       // ── Create transaction record ──────────────────────────────────────────
       const transactionId = `TXN-${generateId(6)}`;
+      track("buy_initiated", phone, {
+        listingId,
+        type: listing.type,
+        amount: listing.price,
+        transactionId,
+      });
 
       await Transaction.create({
         transactionId,

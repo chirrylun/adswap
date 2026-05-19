@@ -127,6 +127,26 @@ export async function sendList(
   await withRetry(() => metaClient.post(`/${PHONE}/messages`, payload));
 }
 
+// ─── Send image by URL ────────────────────────────────────────────────────────
+export async function sendImage(
+  to:       string,
+  url:      string,
+  caption?: string,
+): Promise<void> {
+  await withRetry(() =>
+    metaClient.post(`/${PHONE}/messages`, {
+      messaging_product: 'whatsapp',
+      recipient_type:    'individual',
+      to,
+      type: 'image',
+      image: {
+        link:    url,
+        ...(caption ? { caption: caption.slice(0, 1024) } : {}),
+      },
+    })
+  );
+}
+
 // ─── Mark message as read ─────────────────────────────────────────────────────
 export async function markAsRead(messageId: string): Promise<void> {
   await withRetry(() =>

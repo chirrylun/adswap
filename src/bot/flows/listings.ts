@@ -3,6 +3,7 @@ import { TYPE_LABELS } from '../../config/constants';
 import Listing, { ListingType } from '../../models/Listing';
 import User from '../../models/User';
 import Transaction from '../../models/Transaction';
+import { track } from '../../services/analytics';
 
 // ─── Short code maps (row IDs must be ≤20 chars) ─────────────────────────────
 
@@ -208,6 +209,7 @@ function formatFullDetails(l: any): string {
 // ─── Step 1: Category picker ──────────────────────────────────────────────────
 
 async function showCategoryPicker(phone: string): Promise<void> {
+  track('listings_viewed', phone);
   const activeCounts = await Listing.aggregate([
     { $match: { status: 'active' } },
     { $group: { _id: '$type', count: { $sum: 1 } } },
@@ -245,9 +247,12 @@ async function showCategoryPicker(phone: string): Promise<void> {
 // ─── Step 2: Listings within a category ──────────────────────────────────────
 
 async function showCategoryListings(phone: string, rawShort: string): Promise<void> {
+
+
   // Normalise — WhatsApp may return the id uppercased or as-sent
   const short = rawShort.toLowerCase();
   const type  = SHORT_TO_TYPE[short];
+  
 
   if (!type) {
     return sendMessage(phone,
@@ -256,6 +261,7 @@ async function showCategoryListings(phone: string, rawShort: string): Promise<vo
   }
 
   const label    = TYPE_LABELS[type] ?? type;
+    track('category_selected', phone, { category: type, label });
   const listings = await Listing.find({ status: 'active', type: type as ListingType })
     .populate('seller')
     .sort({ isFeatured: -1, createdAt: -1 })
@@ -289,7 +295,10 @@ async function showCategoryListings(phone: string, rawShort: string): Promise<vo
 
 // ─── Step 3: Single listing detail ───────────────────────────────────────────
 
+// ─── Step 3: Single listing detail ───────────────────────────────────────────
+
 async function showListingDetail(phone: string, listingId: string): Promise<void> {
+  
   const listing = await Listing.findOne({ listingId, status: 'active' })
     .populate<{ seller: any }>('seller');
 
@@ -310,7 +319,10 @@ async function showListingDetail(phone: string, listingId: string): Promise<void
   const typeLabel = TYPE_LABELS[listing.type] ?? listing.type;
   const price     = listing.buyerPays || listing.price;
 
-  return sendMessage(phone,
+  track('listing_viewed', phone, { listingId, type: listing.type, price });
+
+  // ── 1. Send the main detail message ────────────────────────────────────────
+  await sendMessage(phone,
     `${listing.isFeatured ? '⭐ *FEATURED*\n' : ''}` +
     `*${typeLabel}*\n` +
     `_${listingId}_\n` +
@@ -331,6 +343,22 @@ async function showListingDetail(phone: string, listingId: string): Promise<void
 
     listingDetailCTA(listingId, price),
   );
+
+  // ── 2. Send screenshots if present ─────────────────────────────────────────
+  const screenshots: string[] = listing.screenshotUrls ?? [];
+
+  if (screenshots.length > 0) {
+    // Caption on first image only; subsequent images sent silently
+    await sendImage(phone, screenshots[0],
+      `🖼️ *Verification screenshots* (${screenshots.length} total)\n` +
+      `_Submitted by seller as proof of account details._`
+    );
+
+    // Send remaining screenshots without captions
+    for (let i = 1; i < screenshots.length; i++) {
+      await sendImage(phone, screenshots[i]);
+    }
+  }
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────

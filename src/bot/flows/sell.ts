@@ -12,6 +12,7 @@ import Request from "../../models/Request";
 import User from "../../models/User";
 import { generateId } from "../../utils/helpers";
 import { ISession } from "../../models/Session";
+import { track } from "../../services/analytics";
 
 // ─── Fee calculation ──────────────────────────────────────────────────────────
 function calcFee(price: number): {
@@ -737,8 +738,11 @@ export async function handleSell(
 
   // ── Entry ──────────────────────────────────────────────────────────────────
   if (text === "SELL") {
+    track('sell_started', phone);
     if (step === "sell_type" && data.linkedRequestType) {
+     
       const typeKey = data.linkedRequestType;
+       track('sell_type_selected', phone, { type: typeKey });
       await setSession(phone, "sell_price", {
         type: typeKey,
         linkedRequestId: data.linkedRequestId,
@@ -806,7 +810,9 @@ export async function handleSell(
         "❌ Invalid price. Minimum is ₦1,000.\n\nEnter numbers only — example: 75000",
       );
     }
+    track('sell_price_set', phone, { type: data.type, price });
     const { fee, rate, sellerReceives } = calcFee(price);
+    
     await setSession(phone, "sell_escrow", { ...data, price });
     return sendButtons(
       phone,
@@ -826,12 +832,14 @@ export async function handleSell(
 
   // ── Select escrow ──────────────────────────────────────────────────────────
   if (step === "sell_escrow") {
+    
     const escrowMap: Record<string, string> = {
       ESCROW_KOJI:   "koji_agudah",
       ESCROW_NAUMAN: "nauman_chaudhary",
       ESCROW_SWAPPA: "swappa_native",
     };
     const escrowProvider = escrowMap[text];
+    track('sell_escrow_selected', phone, { type: data.type, escrowProvider });
     if (!escrowProvider) {
       return sendButtons(
         phone,
@@ -878,6 +886,7 @@ export async function handleSell(
   // ── Questionnaire steps ────────────────────────────────────────────────────
   if (step.startsWith("sell_q_")) {
     const questions = getQuestions(data.type);
+    track('sell_question_answered', phone, { step, type: data.type });
     const currentIdx = questions.findIndex((q) => q.step === step);
     if (currentIdx === -1) {
       await clearSession(phone);
@@ -978,6 +987,14 @@ export async function handleSell(
           expiresAt,
           ...extraFields,
         });
+
+        track('sell_listing_created', phone, {
+  listingId,
+  type: data.type,
+  price: data.price,
+  escrowProvider,
+  screenshotCount: screenshots.length,
+});
 
         const linkedRequestId = data.linkedRequestId;
         if (linkedRequestId) {

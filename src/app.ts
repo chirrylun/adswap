@@ -12,6 +12,7 @@ import { globalLimiter, speedLimiter } from './middleware/rateLimiter';
 import webhookRouter     from './routes/webhook';
 import adminRouter       from './routes/admin';
 import adminAuthRouter   from './routes/adminAuth';
+import analyticsRouter from './routes/analytics';
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.options('/{*path}', cors({
 app.use('/webhook', webhookRouter);
 app.use('/admin',   adminAuthRouter);
 app.use('/admin',   adminRouter);
+app.use('/admin/analytics',   analyticsRouter);
 
 app.get('/payment/done', (_req: Request, res: Response) => {
   res.send(`

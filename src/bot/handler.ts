@@ -13,6 +13,7 @@ import {
   handleCancelOffer,
   handleMyOffers,
 } from './flows/offer';
+import { track } from '../services/analytics';
 /*
 import { handleDispute }            from './flows/dispute';
 import { handleRate }               from './flows/confirm';
@@ -50,6 +51,7 @@ export async function handleIncoming(
   const isNewUser = userResult === null;
 
   if (isNewUser) {
+    track('user_joined', phone);
     sendMessage(
       process.env.PAYMENT_PHONE!,
       `👤 *New User Joined*\n\n` +
@@ -71,13 +73,15 @@ export async function handleIncoming(
 
   // ── Global commands ────────────────────────────────────────────────────────
   if (['MENU', 'START', 'HI', 'HELLO', 'HEY'].includes(upper)) {
-    await clearSession(phone);
-    return showWelcome(phone);
-  }
+  track('menu_opened', phone, { trigger: upper });
+  await clearSession(phone);
+  return showWelcome(phone);
+}
 
-  if (upper === 'HELP') {
-    return showHelp(phone);
-  }
+if (upper === 'HELP') {
+  track('help_opened', phone);
+  return showHelp(phone);
+}
 
   // ── Cancel variants — must be checked before generic CANCEL ───────────────
   if (upper.startsWith('CANCEL TXN-')) {
@@ -94,9 +98,10 @@ export async function handleIncoming(
   }
 
   if (upper === 'CANCEL') {
-    await clearSession(phone);
-    return sendMessage(phone, '❌ Action cancelled.\n\nType *MENU* to start again.');
-  }
+  track('session_cancelled', phone, { fromStep: session?.step });
+  await clearSession(phone);
+  return sendMessage(phone, '❌ Action cancelled.\n\nType *MENU* to start again.');
+}
 
   // ── Notification commands ──────────────────────────────────────────────────
   if (upper.startsWith('OPTOUT ')) {
@@ -198,5 +203,6 @@ if (upper.startsWith('REMOVE ')) {
   }
 
   // ── Default fallback ───────────────────────────────────────────────────────
-  return showWelcome(phone);
+  track('drop_off', phone, { text: upper }, session?.step ?? 'none');
+return showWelcome(phone);
 }
