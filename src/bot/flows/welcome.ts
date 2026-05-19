@@ -9,7 +9,7 @@ export async function showWelcome(phone: string): Promise<void> {
     `The safest way to buy and sell digital accounts in Nigeria.\n\n` +
     `Whether you're selling a Google Ads account, TikTok page, Instagram account, Play Console, gift cards and more — we've got you covered.\n\n` +
     `🔒 *Your money is always protected*\n` +
-    `Every transaction goes through *Koji Agudah*, *Nauman Chaudhary* or "Swappa's native escrow* — funds are held safely and only released when you confirm you've received full access.\n\n` +
+    `Every transaction goes through *Koji Agudah*, *Nauman Chaudhary* or *Swappa's native escrow* — funds are held safely and only released when you confirm you've received full access.\n\n` +
     `✅ Every listing is manually verified before going live\n` +
     `⚡ Disputes resolved within 48 hours\n` +
     `💬 Real support when you need it\n\n` +
@@ -21,15 +21,15 @@ export async function showWelcome(phone: string): Promise<void> {
     ]
   );
 }
+
 export async function showHelp(phone: string): Promise<void> {
-  // 1. Send the full help text as a plain message (no 1024-char limit)
   await sendMessage(
     phone,
     `*How Swappa Works* 🛡️\n\n` +
     `*Buying an account?*\n` +
     `1. Browse listings and find what you want\n` +
     `2. Send *BUY [listing ID]* to start\n` +
-    `3. Our team contacts you to set up *Koji Agudah escrow*\n` +
+    `3. Our team contacts you to set up escrow\n` +
     `4. Your money is held safely — not sent to the seller yet\n` +
     `5. Seller hands over the account credentials\n` +
     `6. You confirm access and funds are released to the seller\n\n` +
@@ -39,20 +39,17 @@ export async function showHelp(phone: string): Promise<void> {
     `3. We review and publish your listing within 24 hours\n` +
     `4. When a buyer is ready, escrow handles the payment\n` +
     `5. You get paid once the buyer confirms access\n\n` +
-    `*Other commands*\n` +
+    `*Useful commands*\n` +
     `*LISTINGS* — Browse what's available\n` +
-    `*CANCEL TXN-[id]* — Cancel a pending transaction\n` +
-    `*MENU* — Return to the main menu\n` +
-    `*REQUEST* — Ask the community for a specific asset\n` +
-    `*MY REQUESTS* — View your open requests\n` +
-    `*RESPOND [REF]* — Respond to someone's asset request\n` +
+    `*SELL* — List an asset for sale\n` +
+    `*REQUEST* — Ask for a specific asset\n` +
     `*MY LISTINGS* — View your active listings\n` +
-    `*REMOVE [ID]* — Remove one of your listings\n\n` +
-    `🔒 All payments go through your chosen escrow — your money is never at risk.\n\n` +
-    `Need help? Contact us: ${process.env.SUPPORT_PHONE}`,
+    `*MENU* — Return to the main menu\n\n` +
+    `🔒 All payments go through escrow — your money is never at risk.\n\n` +
+    `💬 *Have a question? Chat with us directly:*\n` +
+    `https://wa.me/2347026131523`
   );
 
-  // 2. Send the buttons as a short follow-up (body well under 1024 chars)
   await sendButtons(
     phone,
     `What would you like to do next?`,
