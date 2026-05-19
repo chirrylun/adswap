@@ -737,12 +737,16 @@ export async function handleSell(
   const data = session.data;
 
   // ── Entry ──────────────────────────────────────────────────────────────────
+  // ── Entry ──────────────────────────────────────────────────────────────────
   if (text === "SELL") {
-    track('sell_started', phone);
+    // Only track sell_started when entering fresh, not resuming a linked-request fast-path
+    if (!step || step === "sell_type") {
+      track('sell_started', phone);
+    }
+
     if (step === "sell_type" && data.linkedRequestType) {
-     
       const typeKey = data.linkedRequestType;
-       track('sell_type_selected', phone, { type: typeKey });
+      track('sell_type_selected', phone, { type: typeKey }); // ← already correct here
       await setSession(phone, "sell_price", {
         type: typeKey,
         linkedRequestId: data.linkedRequestId,
@@ -780,10 +784,14 @@ export async function handleSell(
   }
 
   // ── Select type ────────────────────────────────────────────────────────────
+  // ── Select type ────────────────────────────────────────────────────────────
   if (step === "sell_type") {
     const typeKey = TYPE_MAP[text];
     if (!typeKey)
       return sendMessage(phone, "❌ Please reply with a number from 1 to 8.");
+    
+    track('sell_type_selected', phone, { type: typeKey }); // ← ADD THIS
+
     await setSession(phone, "sell_price", {
       type: typeKey,
       linkedRequestId: data.linkedRequestId,
