@@ -4,6 +4,7 @@ import Listing, { ListingType } from '../../models/Listing';
 import User from '../../models/User';
 import Transaction from '../../models/Transaction';
 import { track } from '../../services/analytics';
+import { sendImage } from '../../services/whatsapp';
 
 // ─── Short code maps (row IDs must be ≤20 chars) ─────────────────────────────
 
