@@ -13,6 +13,7 @@ import Dispute     from '../models/Dispute';
 import User        from '../models/User';
 import BuyRequest  from '../models/Request';
 import { TYPE_LABELS } from '../config/constants';
+import Offer from '../models/Offer';
 
 const router = Router();
 
@@ -467,14 +468,24 @@ router.get('/users', adminAuth, async (req: AdminRequest, res: Response) => {
     { $match: { seller: { $in: userIds }, status: 'active' } },
     { $group: { _id: '$seller', count: { $sum: 1 } } },
   ]);
+  
   const countMap = Object.fromEntries(
     listingCounts.map(l => [l._id.toString(), l.count]),
   );
 
+  const offerCounts = await Offer.aggregate([
+  { $match: { seller: { $in: userIds }, status: { $in: ['pending', 'countered', 'buyer_countered'] } } },
+  { $group: { _id: '$seller', count: { $sum: 1 } } },
+]);
+const offerMap = Object.fromEntries(
+  offerCounts.map(o => [o._id.toString(), o.count]),
+);
+
   const enriched = users.map(u => ({
-    ...u.toObject(),
-    activeListings: countMap[u._id.toString()] ?? 0,
-  }));
+  ...u.toObject(),
+  activeListings:  countMap[u._id.toString()] ?? 0,
+  pendingOffers:   offerMap[u._id.toString()] ?? 0,
+}));
 
   res.json({ users: enriched, total, page: +page, pages: Math.ceil(total / +limit) });
 });
