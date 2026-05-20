@@ -47,37 +47,53 @@ const COUNTRY_QUESTION: Question = {
 
 function getQuestions(type: string): Question[] {
   switch (type) {
-    case "google_ad_account":
-      return [
-        {
-          step: "sell_q_gads_age",
-          prompt: `*Step 1 of 6 — Account Age* 📅\n\nHow long has this Google Ads account been active?\n\nExamples: _3 months_, _1 year_, _4 years_\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_gads_spend",
-          prompt: `*Step 2 of 6 — Total Spend* 💸\n\nWhat is the total lifetime spend on this account?\n\nExamples: _$500_, _$10,000_, _$50,000+_\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_gads_currency",
-          prompt: `*Step 3 of 6 — Billing Currency* 💱\n\nWhat currency is this account billed in?\n\nExamples: _USD_, _GBP_, _NGN_, _EUR_\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_gads_niche",
-          prompt: `*Step 4 of 6 — Account Niche* 🏷️\n\nWhat niche or industry were ads running in?\n\nExamples: _E-commerce_, _Finance_, _Real Estate_, _Health_\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_gads_suspended",
-          prompt: `*Step 5 of 6 — Account Status* ⚠️\n\nHas this account ever been suspended or restricted?`,
-          buttons: [
-            { id: "GADS_SUSP_NO", title: "✅ No issues" },
-            { id: "GADS_SUSP_YES", title: "⚠️ Was suspended" },
-          ],
-        },
-        {
-          ...COUNTRY_QUESTION,
-          prompt: COUNTRY_QUESTION.prompt.replace("Final Step", "Step 6 of 6"),
-        },
-      ];
+   case "google_ad_account":
+  return [
+    {
+      step: "sell_q_gads_age",
+      prompt: `*Step 1 of 8 — Account Age* 📅\n\nHow long has this Google Ads account been active?\n\nExamples: _3 months_, _1 year_, _4 years_\n\nType your answer:`,
+    },
+    {
+      step: "sell_q_gads_spend",
+      prompt: `*Step 2 of 8 — Total Spend* 💸\n\nWhat is the total lifetime spend on this account?\n\nExamples: _$500_, _$10,000_, _$50,000+_\n\nType your answer:`,
+    },
+    {
+      step: "sell_q_gads_currency",
+      prompt: `*Step 3 of 8 — Billing Currency* 💱\n\nWhat currency is this account billed in?\n\nExamples: _USD_, _GBP_, _NGN_, _EUR_\n\nType your answer:`,
+    },
+    {
+      step: "sell_q_gads_niche",
+      prompt: `*Step 4 of 8 — Account Niche* 🏷️\n\nWhat niche or industry were ads running in?\n\nExamples: _E-commerce_, _Finance_, _Real Estate_, _Health_\n\nType your answer:`,
+    },
+    {
+      step: "sell_q_gads_verified",
+      prompt: `*Step 5 of 8 — Advertiser Verification* 🪪\n\nHas this account completed Google's advertiser identity verification?`,
+      buttons: [
+        { id: "GADS_VER_YES", title: "✅ Yes — verified" },
+        { id: "GADS_VER_NO",  title: "❌ Not verified" },
+      ],
+    },
+    {
+      step: "sell_q_gads_campaigns",
+      prompt: `*Step 6 of 8 — Active Campaigns* 📢\n\nDoes this account have any active or recently running campaigns?`,
+      buttons: [
+        { id: "GADS_CAMP_YES", title: "✅ Yes — has campaigns" },
+        { id: "GADS_CAMP_NO",  title: "❌ No active campaigns" },
+      ],
+    },
+    {
+      step: "sell_q_gads_suspended",
+      prompt: `*Step 7 of 8 — Account Status* ⚠️\n\nHas this account ever been suspended or restricted?`,
+      buttons: [
+        { id: "GADS_SUSP_NO",  title: "✅ No issues" },
+        { id: "GADS_SUSP_YES", title: "⚠️ Was suspended" },
+      ],
+    },
+    {
+      ...COUNTRY_QUESTION,
+      prompt: COUNTRY_QUESTION.prompt.replace("Final Step", "Step 8 of 8"),
+    },
+  ];
 
     case "facebook_ad_account":
       return [
@@ -228,41 +244,57 @@ function getQuestions(type: string): Question[] {
       ];
 
     case "adsense_site":
-      return [
-        {
-          step: "sell_q_ads_age",
-          prompt: `*Step 1 of 6 — Account Age* 📅\n\nHow old is this AdSense account?\n\nExamples: _1 year_, _3 years_\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_ads_payment",
-          prompt: `*Step 2 of 6 — Payment History* 💵\n\nHas AdSense ever made a payment to this account?`,
-          buttons: [
-            { id: "ADS_PAY_YES", title: "✅ Yes — received payment" },
-            { id: "ADS_PAY_THRESH", title: "⏳ At threshold, not paid" },
-            { id: "ADS_PAY_NO", title: "❌ No payments yet" },
-          ],
-        },
-        {
-          step: "sell_q_ads_earnings",
-          prompt: `*Step 3 of 6 — Monthly Earnings* 💰\n\nApproximate monthly earnings?\n\nEnter numbers only.\nExamples: _20_, _200_, _500_\n\nType your answer:`,
-        },
-        {
-          step: "sell_q_ads_url",
-          prompt: `*Step 4 of 6 — Website URL* 🌐\n\nWhat is the URL of the site attached to this AdSense account?\n\nExample: _myblog.com_\n\nType your answer (or type *NONE*):`,
-        },
-        {
-          step: "sell_q_ads_violations",
-          prompt: `*Step 5 of 6 — Policy Violations* ⚠️\n\nDoes this AdSense account have any policy violations?`,
-          buttons: [
-            { id: "ADS_VIO_NO", title: "✅ No violations" },
-            { id: "ADS_VIO_YES", title: "⚠️ Has violations" },
-          ],
-        },
-        {
-          ...COUNTRY_QUESTION,
-          prompt: COUNTRY_QUESTION.prompt.replace("Final Step", "Step 6 of 6"),
-        },
-      ];
+  return [
+    {
+      step: "sell_q_ads_age",
+      prompt: `*Step 1 of 8 — Account Age* 📅\n\nHow old is this AdSense account?\n\nExamples: _1 year_, _3 years_\n\nType your answer:`,
+    },
+    {
+      step: "sell_q_ads_payment",
+      prompt: `*Step 2 of 8 — Payment History* 💵\n\nHas AdSense ever made a payment to this account?`,
+      buttons: [
+        { id: "ADS_PAY_YES",    title: "✅ Yes — received payment" },
+        { id: "ADS_PAY_THRESH", title: "⏳ At threshold, not paid" },
+        { id: "ADS_PAY_NO",     title: "❌ No payments yet" },
+      ],
+    },
+    {
+      step: "sell_q_ads_earnings",
+      prompt: `*Step 3 of 8 — Monthly Earnings* 💰\n\nApproximate monthly earnings?\n\nEnter numbers only.\nExamples: _20_, _200_, _500_\n\nType your answer:`,
+    },
+    {
+      step: "sell_q_ads_url",
+      prompt: `*Step 4 of 8 — Website URL* 🌐\n\nWhat is the URL of the site attached to this AdSense account?\n\nExample: _myblog.com_\n\nType your answer (or type *NONE*):`,
+    },
+    {
+      step: "sell_q_ads_domain",
+      prompt: `*Step 5 of 8 — Domain Included* 🔗\n\nIs the domain/website included in this sale?`,
+      buttons: [
+        { id: "ADS_DOM_YES", title: "✅ Yes — domain included" },
+        { id: "ADS_DOM_NO",  title: "❌ No — AdSense only" },
+      ],
+    },
+    {
+      step: "sell_q_ads_verified",
+      prompt: `*Step 6 of 8 — Identity Verified* 🪪\n\nIs this AdSense account identity-verified with Google?`,
+      buttons: [
+        { id: "ADS_VER_YES", title: "✅ Yes — fully verified" },
+        { id: "ADS_VER_NO",  title: "❌ Not verified" },
+      ],
+    },
+    {
+      step: "sell_q_ads_violations",
+      prompt: `*Step 7 of 8 — Policy Violations* ⚠️\n\nDoes this AdSense account have any policy violations?`,
+      buttons: [
+        { id: "ADS_VIO_NO",  title: "✅ No violations" },
+        { id: "ADS_VIO_YES", title: "⚠️ Has violations" },
+      ],
+    },
+    {
+      ...COUNTRY_QUESTION,
+      prompt: COUNTRY_QUESTION.prompt.replace("Final Step", "Step 8 of 8"),
+    },
+  ];
 
     case "play_console":
       return [
@@ -374,16 +406,18 @@ function buildDescription(type: string, data: Record<string, any>): string {
     : "";
 
   switch (type) {
-    case "google_ad_account":
-      return (
-        [
-          `Age: ${data.sell_q_gads_age}`,
-          `Total spend: ${data.sell_q_gads_spend}`,
-          `Currency: ${data.sell_q_gads_currency}`,
-          `Niche: ${data.sell_q_gads_niche}`,
-          `Suspended: ${yesNo(data.sell_q_gads_suspended, "GADS_SUSP_YES")}`,
-        ].join(" | ") + country
-      );
+  case "google_ad_account":
+  return (
+    [
+      `Age: ${data.sell_q_gads_age}`,
+      `Total spend: ${data.sell_q_gads_spend}`,
+      `Currency: ${data.sell_q_gads_currency}`,
+      `Niche: ${data.sell_q_gads_niche}`,
+      `Verified: ${data.sell_q_gads_verified === "GADS_VER_YES" ? "Yes" : "No"}`,
+      `Active campaigns: ${data.sell_q_gads_campaigns === "GADS_CAMP_YES" ? "Yes" : "No"}`,
+      `Suspended: ${yesNo(data.sell_q_gads_suspended, "GADS_SUSP_YES")}`,
+    ].join(" | ") + country
+  );
 
     case "facebook_ad_account":
       return (
@@ -430,15 +464,17 @@ function buildDescription(type: string, data: Record<string, any>): string {
       );
 
     case "adsense_site":
-      return (
-        [
-          `Age: ${data.sell_q_ads_age}`,
-          `Payment: ${data.sell_q_ads_payment === "ADS_PAY_YES" ? "Received" : data.sell_q_ads_payment === "ADS_PAY_THRESH" ? "At threshold" : "None yet"}`,
-          `Monthly earnings: $${data.sell_q_ads_earnings}/mo`,
-          `Site: ${data.sell_q_ads_url?.toUpperCase() === "NONE" ? "Not included" : data.sell_q_ads_url}`,
-          `Violations: ${yesNo(data.sell_q_ads_violations, "ADS_VIO_YES")}`,
-        ].join(" | ") + country
-      );
+  return (
+    [
+      `Age: ${data.sell_q_ads_age}`,
+      `Payment: ${data.sell_q_ads_payment === "ADS_PAY_YES" ? "Received" : data.sell_q_ads_payment === "ADS_PAY_THRESH" ? "At threshold" : "None yet"}`,
+      `Monthly earnings: $${data.sell_q_ads_earnings}/mo`,
+      `Site: ${data.sell_q_ads_url?.toUpperCase() === "NONE" ? "Not included" : data.sell_q_ads_url}`,
+      `Domain included: ${data.sell_q_ads_domain === "ADS_DOM_YES" ? "Yes" : "No"}`,
+      `Verified: ${data.sell_q_ads_verified === "ADS_VER_YES" ? "Yes" : "No"}`,
+      `Violations: ${yesNo(data.sell_q_ads_violations, "ADS_VIO_YES")}`,
+    ].join(" | ") + country
+  );
 
     case "play_console":
       return [
@@ -479,14 +515,16 @@ function buildListingFields(
 
   switch (type) {
     case "google_ad_account":
-      return {
-        ...country,
-        googleAdsAccountAge: data.sell_q_gads_age,
-        googleAdsSpend: data.sell_q_gads_spend,
-        googleAdsCurrency: data.sell_q_gads_currency,
-        googleAdsNiche: data.sell_q_gads_niche,
-        googleAdsSuspended: data.sell_q_gads_suspended === "GADS_SUSP_YES",
-      };
+  return {
+    ...country,
+    googleAdsAccountAge:      data.sell_q_gads_age,
+    googleAdsSpend:           data.sell_q_gads_spend,
+    googleAdsCurrency:        data.sell_q_gads_currency,
+    googleAdsNiche:           data.sell_q_gads_niche,
+    googleAdsVerified:        data.sell_q_gads_verified === "GADS_VER_YES",
+    googleAdsActiveCampaigns: data.sell_q_gads_campaigns === "GADS_CAMP_YES",
+    googleAdsSuspended:       data.sell_q_gads_suspended === "GADS_SUSP_YES",
+  };
 
     case "facebook_ad_account":
       return {
@@ -529,22 +567,24 @@ function buildListingFields(
       };
 
     case "adsense_site":
-      return {
-        ...country,
-        adsenseAge: data.sell_q_ads_age,
-        adsensePaymentStatus:
-          data.sell_q_ads_payment === "ADS_PAY_YES"
-            ? "received"
-            : data.sell_q_ads_payment === "ADS_PAY_THRESH"
-              ? "threshold"
-              : "none",
-        adsenseMonthlyEarnings: data.sell_q_ads_earnings,
-        adsenseSiteUrl:
-          data.sell_q_ads_url?.toUpperCase() === "NONE"
-            ? undefined
-            : data.sell_q_ads_url,
-        adsenseViolations: data.sell_q_ads_violations === "ADS_VIO_YES",
-      };
+  return {
+    ...country,
+    adsenseAge: data.sell_q_ads_age,
+    adsensePaymentStatus:
+      data.sell_q_ads_payment === "ADS_PAY_YES"
+        ? "received"
+        : data.sell_q_ads_payment === "ADS_PAY_THRESH"
+          ? "threshold"
+          : "none",
+    adsenseMonthlyEarnings: data.sell_q_ads_earnings,
+    adsenseSiteUrl:
+      data.sell_q_ads_url?.toUpperCase() === "NONE"
+        ? undefined
+        : data.sell_q_ads_url,
+    adsenseDomainIncluded: data.sell_q_ads_domain === "ADS_DOM_YES",
+    adsenseVerified:       data.sell_q_ads_verified === "ADS_VER_YES",
+    adsenseViolations:     data.sell_q_ads_violations === "ADS_VIO_YES",
+  };
 
     case "play_console":
       return {
@@ -627,15 +667,17 @@ function buildAdminAlert(
   let details = "";
   switch (data.type) {
     case "google_ad_account":
-      details = [
-        extra.googleAdsAccountAge && `📅 Age: ${extra.googleAdsAccountAge}`,
-        extra.googleAdsSpend && `💸 Spend: ${extra.googleAdsSpend}`,
-        extra.googleAdsCurrency && `💱 Currency: ${extra.googleAdsCurrency}`,
-        extra.googleAdsNiche && `🏷️ Niche: ${extra.googleAdsNiche}`,
-        extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
-        `⚠️ Suspended: ${extra.googleAdsSuspended ? "Yes" : "No"}`,
-      ].filter(Boolean).join("\n");
-      break;
+  details = [
+    extra.googleAdsAccountAge && `📅 Age: ${extra.googleAdsAccountAge}`,
+    extra.googleAdsSpend && `💸 Spend: ${extra.googleAdsSpend}`,
+    extra.googleAdsCurrency && `💱 Currency: ${extra.googleAdsCurrency}`,
+    extra.googleAdsNiche && `🏷️ Niche: ${extra.googleAdsNiche}`,
+    `🪪 Verified: ${extra.googleAdsVerified ? "Yes" : "No"}`,
+    `📢 Active campaigns: ${extra.googleAdsActiveCampaigns ? "Yes" : "No"}`,
+    extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
+    `⚠️ Suspended: ${extra.googleAdsSuspended ? "Yes" : "No"}`,
+  ].filter(Boolean).join("\n");
+  break;
     case "facebook_ad_account":
       details = [
         extra.metaAccountAge && `📅 Age: ${extra.metaAccountAge}`,
@@ -676,16 +718,18 @@ function buildAdminAlert(
         `🔴 LIVE access: ${extra.tiktokLives ? "Yes" : "No"}`,
       ].filter(Boolean).join("\n");
       break;
-    case "adsense_site":
-      details = [
-        extra.adsenseAge && `📅 Age: ${extra.adsenseAge}`,
-        extra.adsenseMonthlyEarnings && `💰 Earnings: $${extra.adsenseMonthlyEarnings}/mo`,
-        extra.adsensePaymentStatus && `💵 Payment: ${extra.adsensePaymentStatus}`,
-        extra.adsenseSiteUrl && `🌐 Site: ${extra.adsenseSiteUrl}`,
-        extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
-        `⚠️ Violations: ${extra.adsenseViolations ? "Yes" : "No"}`,
-      ].filter(Boolean).join("\n");
-      break;
+   case "adsense_site":
+  details = [
+    extra.adsenseAge && `📅 Age: ${extra.adsenseAge}`,
+    extra.adsenseMonthlyEarnings && `💰 Earnings: $${extra.adsenseMonthlyEarnings}/mo`,
+    extra.adsensePaymentStatus && `💵 Payment: ${extra.adsensePaymentStatus}`,
+    extra.adsenseSiteUrl && `🌐 Site: ${extra.adsenseSiteUrl}`,
+    `🔗 Domain included: ${extra.adsenseDomainIncluded ? "Yes" : "No"}`,
+    `🪪 Verified: ${extra.adsenseVerified ? "Yes" : "No"}`,
+    extra.accountCountry && `🌍 Country: ${extra.accountCountry}`,
+    `⚠️ Violations: ${extra.adsenseViolations ? "Yes" : "No"}`,
+  ].filter(Boolean).join("\n");
+  break;
     case "play_console":
       details = [
         extra.playConsoleAge && `📅 Age: ${extra.playConsoleAge}`,
@@ -839,39 +883,65 @@ export async function handleSell(
   }
 
   // ── Select escrow ──────────────────────────────────────────────────────────
-  if (step === "sell_escrow") {
-    
-    const escrowMap: Record<string, string> = {
-      ESCROW_KOJI:   "koji_agudah",
-      ESCROW_NAUMAN: "nauman_chaudhary",
-      ESCROW_SWAPPA: "swappa_native",
-    };
-    const escrowProvider = escrowMap[text];
-    track('sell_escrow_selected', phone, { type: data.type, escrowProvider });
-    if (!escrowProvider) {
-      return sendButtons(
-        phone,
-        `❌ Please choose an escrow provider:`,
-        [
-          { id: "ESCROW_KOJI",   title: "🔒 Koji Agudah"      },
-          { id: "ESCROW_NAUMAN", title: "🔒 Nauman Chaudhary" },
-          { id: "ESCROW_SWAPPA", title: "🔒 Swappa Native"    },
-        ],
-      );
-    }
-    await setSession(phone, "sell_questions", { ...data, escrowProvider });
-    return sendMessage(
+  // ── Select escrow ──────────────────────────────────────────────────────────
+if (step === "sell_escrow") {
+  const escrowMap: Record<string, string> = {
+    ESCROW_KOJI:   "koji_agudah",
+    ESCROW_NAUMAN: "nauman_chaudhary",
+    ESCROW_SWAPPA: "swappa_native",
+  };
+  const escrowProvider = escrowMap[text];
+  track('sell_escrow_selected', phone, { type: data.type, escrowProvider });
+  if (!escrowProvider) {
+    return sendButtons(
       phone,
-      `✅ *${ESCROW_LABELS[escrowProvider]}* selected as your escrow provider.\n\n` +
-        `🔒 Payment is handled via *${ESCROW_LABELS[escrowProvider]}* — funds are held securely until the buyer confirms access.\n\n` +
-        `Now I'll ask a few quick questions about the account.\n` +
-        `This helps buyers trust your listing.\n\n` +
-        `Type *CANCEL* at any time to exit.`,
+      `❌ Please choose an escrow provider:`,
+      [
+        { id: "ESCROW_KOJI",   title: "🔒 Koji Agudah"      },
+        { id: "ESCROW_NAUMAN", title: "🔒 Nauman Chaudhary" },
+        { id: "ESCROW_SWAPPA", title: "🔒 Swappa Native"    },
+      ],
     );
   }
 
-  // ── Start questionnaire ────────────────────────────────────────────────────
-  if (step === "sell_questions") {
+  // ── Immediately launch questionnaire — no extra tap needed ────────────
+  const updatedData = { ...data, escrowProvider };
+  const questions = getQuestions(data.type);
+  const firstQ = questions[0];
+
+  if (!firstQ) {
+    // No questions for this type — go straight to screenshots
+    await setSession(phone, "sell_screenshots", {
+      ...updatedData,
+      description: "",
+      screenshots: [],
+    });
+    await sendMessage(
+      phone,
+      `✅ *${ESCROW_LABELS[escrowProvider]}* will hold the buyer's payment securely until you both confirm the deal.\n\n` +
+      `Now let's verify your listing. 📸\n\n` +
+      `${screenshotGuide(data.type)}\n\nSend images one by one. Type *DONE* when finished.`,
+    );
+    return;
+  }
+
+  // Set session to first question step and fire it immediately
+  await setSession(phone, firstQ.step, updatedData);
+
+  const confirmMsg =
+    `✅ *${ESCROW_LABELS[escrowProvider]}* will hold the buyer's payment securely until you both confirm the deal.\n\n` +
+    `Now a few quick questions to help buyers trust your listing — shouldn't take long.\n\n`;
+
+  await sendMessage(phone, confirmMsg);
+
+  return firstQ.buttons
+    ? sendButtons(phone, firstQ.prompt, firstQ.buttons)
+    : sendMessage(phone, firstQ.prompt);
+}
+
+// ── Start questionnaire — now only reachable if session was set externally ─
+// (keep the block but it's no longer part of the normal flow)
+if (step === "sell_questions") {
     const questions = getQuestions(data.type);
     const firstQ = questions[0];
     if (!firstQ) {

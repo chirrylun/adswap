@@ -131,75 +131,88 @@ function formatListingSnippet(l: any): string {
 }
 
 function formatFullDetails(l: any): string {
+  const country = l.accountCountry ? `\n  🌍  Country           ${l.accountCountry}` : '';
+
   switch (l.type) {
     case 'google_ad_account':
       return [
-        `  📅  Age              ${l.googleAdsAccountAge ?? '—'}`,
-        `  💸  Total Spend      ${l.googleAdsSpend ?? '—'}`,
-        `  💱  Currency         ${l.googleAdsCurrency ?? '—'}`,
-        `  🏷️  Niche            ${l.googleAdsNiche ?? '—'}`,
-        `  🔒  Status           ${l.googleAdsSuspended ? '⚠️ Was suspended' : '✅ Clean'}`,
-      ].join('\n');
+        `  📅  Account Age        ${l.googleAdsAccountAge ?? '—'}`,
+        `  💸  Total Spend        ${l.googleAdsSpend ?? '—'}`,
+        `  💱  Billing Currency   ${l.googleAdsCurrency ?? '—'}`,
+        `  🏷️  Niche              ${l.googleAdsNiche ?? '—'}`,
+        `  🪪  Advertiser Verified ${l.googleAdsVerified ? '✅ Yes' : '❌ No'}`,
+        `  📢  Active Campaigns   ${l.googleAdsActiveCampaigns ? '✅ Yes' : '❌ No'}`,
+        `  ⚠️  Account Status     ${l.googleAdsSuspended ? '⚠️ Was suspended' : '✅ Never suspended'}`,
+      ].join('\n') + country;
 
     case 'facebook_ad_account':
       return [
-        `  📅  Age              ${l.metaAccountAge ?? '—'}`,
-        `  💳  Spend Limit      ${l.metaSpendLimit ?? '—'}`,
-        `  🏢  Business Mgr     ${l.metaBusinessManager ? 'Yes' : 'No'}`,
-        `  📊  Pixel            ${l.metaPixelAttached ? 'Attached ✓' : 'Not attached'}`,
-        `  🔒  Status           ${l.metaRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
-      ].join('\n');
+        `  📅  Account Age        ${l.metaAccountAge ?? '—'}`,
+        `  💳  Spend Limit        ${l.metaSpendLimit ?? '—'}`,
+        `  🏢  Business Manager   ${l.metaBusinessManager ? '✅ Yes' : '❌ No'}`,
+        `  📊  Facebook Pixel     ${l.metaPixelAttached ? '✅ Attached' : '❌ Not attached'}`,
+        `  ⚠️  Account Status     ${l.metaRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
+      ].join('\n') + country;
 
     case 'twitter_account':
       return [
-        `  👥  Followers         ${l.twitterFollowers ?? '—'}`,
-        `  📅  Age               ${l.twitterAge ?? '—'}`,
-        `  🏷️  Niche             ${l.twitterNiche ?? '—'}`,
-        `  💰  Monetized         ${l.twitterMonetized ? 'Yes ✓' : 'No'}`,
-        `  🔒  Status            ${l.twitterSuspended ? '⚠️ Was suspended' : '✅ Clean'}`,
-      ].join('\n');
+        `  👥  Followers          ${l.twitterFollowers ?? '—'}`,
+        `  📅  Account Age        ${l.twitterAge ?? '—'}`,
+        `  🏷️  Niche              ${l.twitterNiche ?? '—'}`,
+        `  💰  Monetized          ${l.twitterMonetized ? '✅ Yes' : '❌ No'}`,
+        `  ⚠️  Account Status     ${l.twitterSuspended ? '⚠️ Was suspended' : '✅ Never suspended'}`,
+      ].join('\n') + country;
 
     case 'instagram_account':
       return [
-        `  👥  Followers         ${l.instagramFollowers ?? '—'}`,
-        `  📅  Age               ${l.instagramAge ?? '—'}`,
-        `  🏷️  Niche             ${l.instagramNiche ?? '—'}`,
-        `  💰  Monetized         ${l.instagramMonetized  ? 'Yes ✓' : 'No'}`,
-        `  🔒  Status            ${l.instagramRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
-      ].join('\n');
+        `  👥  Followers          ${l.instagramFollowers ?? '—'}`,
+        `  📅  Account Age        ${l.instagramAge ?? '—'}`,
+        `  🏷️  Niche              ${l.instagramNiche ?? '—'}`,
+        `  💰  Monetized          ${l.instagramMonetized ? '✅ Yes' : '❌ No'}`,
+        `  ⚠️  Account Status     ${l.instagramRestricted ? '⚠️ Has restrictions' : '✅ Clean'}`,
+      ].join('\n') + country;
 
     case 'tiktok_account':
       return [
-        `  👥  Followers         ${l.tiktokFollowers ?? '—'}`,
-        `  📅  Age               ${l.tiktokAge ?? '—'}`,
-        `  🏷️  Niche             ${l.tiktokNiche ?? '—'}`,
-        `  💰  Monetized         ${l.tiktokMonetized ? 'Yes ✓' : 'No'}`,
-        `  🔴  LIVE Access       ${l.tiktokLives    ? 'Yes ✓' : 'No'}`,
-        `  🔒  Status            ${l.tiktokBanned   ? '⚠️ Was banned' : '✅ Clean'}`,
-      ].join('\n');
+        `  👥  Followers          ${l.tiktokFollowers ?? '—'}`,
+        `  📅  Account Age        ${l.tiktokAge ?? '—'}`,
+        `  🏷️  Niche              ${l.tiktokNiche ?? '—'}`,
+        `  💰  Monetized          ${l.tiktokMonetized ? '✅ Yes' : '❌ No'}`,
+        `  🔴  LIVE Access        ${l.tiktokLives ? '✅ Enabled' : '❌ Not enabled'}`,
+        `  ⚠️  Account Status     ${l.tiktokBanned ? '⚠️ Was banned' : '✅ Never banned'}`,
+      ].join('\n') + country;
 
     case 'adsense_site':
       return [
-        `  📅  Age              ${l.adsenseAge ?? '—'}`,
-        `  💰  Monthly Earn     ${l.adsenseMonthlyEarnings ? `$${l.adsenseMonthlyEarnings}/mo` : '—'}`,
-        `  💵  Payment Hist.    ${l.adsensePaymentStatus === 'received' ? '✅ Received' : l.adsensePaymentStatus === 'threshold' ? '⏳ At threshold' : 'None yet'}`,
-        `  🌐  Site             ${l.adsenseSiteUrl ?? 'Not included'}`,
-        `  🔒  Status           ${l.adsenseViolations ? '⚠️ Has violations' : '✅ Clean'}`,
-      ].join('\n');
+        `  📅  Account Age        ${l.adsenseAge ?? '—'}`,
+        `  💰  Monthly Earnings   ${l.adsenseMonthlyEarnings ? `$${l.adsenseMonthlyEarnings}/mo` : '—'}`,
+        `  💵  Payment History    ${l.adsensePaymentStatus === 'received' ? '✅ Has received payments' : l.adsensePaymentStatus === 'threshold' ? '⏳ At threshold, not paid yet' : '❌ No payments yet'}`,
+        `  🌐  Website            ${l.adsenseSiteUrl ?? 'Not provided'}`,
+        `  🔗  Domain Included    ${l.adsenseDomainIncluded ? '✅ Yes — domain transfers with sale' : '❌ No — AdSense account only'}`,
+        `  🪪  Identity Verified  ${l.adsenseVerified ? '✅ Yes' : '❌ Not verified'}`,
+        `  ⚠️  Policy Violations  ${l.adsenseViolations ? '⚠️ Has violations' : '✅ None'}`,
+      ].join('\n') + country;
 
     case 'play_console':
       return [
-        `  📅  Age              ${l.playConsoleAge ?? '—'}`,
-        `  📱  Published Apps   ${l.playConsoleApps ?? '—'}`,
-        `  💵  Monthly Rev.     ${l.playConsoleRevenue ? `$${l.playConsoleRevenue}/mo` : '—'}`,
-        `  🔒  Status           ${l.playConsoleSuspended ? '⚠️ Had issues' : '✅ Clean'}`,
-      ].join('\n');
+        `  📅  Account Age        ${l.playConsoleAge ?? '—'}`,
+        `  🏢  Account Type       ${l.playConsoleAccountType === 'organization' ? 'Organization' : 'Personal'}`,
+        `  🔒  Account Status     ${l.playConsoleAccountStatus === 'active' ? '✅ Active' : '❌ Closed'}`,
+        `  📱  Published Apps     ${l.playConsoleApps ?? '—'}`,
+        `  💵  Monthly Revenue    ${l.playConsoleRevenue ? `$${l.playConsoleRevenue}/mo` : '❌ No revenue'}`,
+        `  ⚠️  Account Suspended  ${l.playConsoleSuspended ? '⚠️ Yes' : '✅ Never'}`,
+        `  ⚠️  Suspended Apps     ${l.playConsoleSuspendedApps ? '⚠️ Yes' : '✅ None'}`,
+        `  🗑️  Removed Apps       ${l.playConsoleRemovedApps ? '⚠️ Yes' : '✅ None'}`,
+        `  🔄  Transferred Apps   ${l.playConsoleTransferredApps ? '⚠️ Yes' : '✅ None'}`,
+        `  🔑  Keystore File      ${l.playConsoleKeystoreAvailable ? '✅ Available' : '❌ Not available'}`,
+        `  🔄  Keystore Reset     ${l.playConsoleKeystoreReset ? '✅ Possible' : '❌ Not possible'}`,
+      ].join('\n') + country;
 
     case 'gift_card':
       return [
-        `  🎁  Brand            ${l.giftCardBrand ?? '—'}`,
-        `  💵  Face Value       ${l.giftCardValue ?? '—'}`,
-        `  🌍  Region           ${l.giftCardCurrency ?? '—'}`,
+        `  🎁  Brand              ${l.giftCardBrand ?? '—'}`,
+        `  💵  Face Value         ${l.giftCardValue ?? '—'}`,
+        `  🌍  Valid In           ${l.giftCardCurrency ?? '—'}`,
       ].join('\n');
 
     default:
@@ -323,24 +336,33 @@ async function showListingDetail(phone: string, listingId: string): Promise<void
   track('listing_viewed', phone, { listingId, type: listing.type, price });
 
   // ── 1. Send the main detail message ────────────────────────────────────────
-  await sendMessage(phone,
-    `${listing.isFeatured ? '⭐ *FEATURED*\n' : ''}` +
-    `*${typeLabel}*\n` +
-    `_${listingId}_\n` +
-    `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
+  const escrowLabel =
+    listing.escrowProvider === 'koji_agudah'      ? 'Koji Agudah' :
+    listing.escrowProvider === 'nauman_chaudhary'  ? 'Nauman Chaudhary' :
+    'Swappa Native Escrow';
 
-    `*Account Details*\n` +
+  await sendMessage(phone,
+    `${listing.isFeatured ? '⭐ *FEATURED LISTING*\n\n' : ''}` +
+    `${CATEGORY_EMOJI[listing.type] ?? '📦'} *${typeLabel}*\n` +
+    `🆔 ${listingId}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+
+    `📋 *Account Details*\n` +
     `${details}\n\n` +
 
-    (listing.description
-      ? `*About this listing*\n  ${listing.description}\n\n`
-      : '') +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💰 *Price*\n` +
+    `  You pay:      *₦${price.toLocaleString()}*\n` +
+    `  Escrow held by: *${escrowLabel}*\n\n` +
 
-    `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n` +
-    `  💰  Price            *₦${price.toLocaleString()}*\n` +
-    `  👤  Seller           ${ratingStr}\n` +
-    `  👁  Views            ${listing.viewCount + 1}\n` +
-    `▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n` +
+    `👤 *Seller*\n` +
+    `  ${ratingStr}\n\n` +
+
+    `👁  *${listing.viewCount + 1}* people have viewed this listing\n\n` +
+
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🔒 *Your money is safe*\n` +
+    `Payment goes into escrow first. It's only released to the seller after you confirm you have full access to the account.\n\n` +
 
     listingDetailCTA(listingId, price),
   );
