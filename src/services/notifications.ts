@@ -113,7 +113,7 @@ function buildListingBlurb(listing: any): string {
     `💰 *Price: ₦${price.toLocaleString()}*\n` +
     `🔒 Escrow protected — your money is safe\n\n` +
 
-    `👇 *To view full details and buy:*\n` +
+    `👇 *To view full details:*\n` +
     `Reply with 👉 \`VIEW ${listing.listingId}\`\n\n` +
 
     `─────────────────\n` +
