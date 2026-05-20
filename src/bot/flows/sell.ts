@@ -864,16 +864,22 @@ export async function handleSell(
     }
     track('sell_price_set', phone, { type: data.type, price });
     const { fee, rate, sellerReceives } = calcFee(price);
-    
+
     await setSession(phone, "sell_escrow", { ...data, price });
     return sendButtons(
       phone,
       `✅ *Price set: ₦${price.toLocaleString()}*\n\n` +
-        `Buyer pays: *₦${price.toLocaleString()}*\n` +
-        `Swappa fee (${rate}%): *₦${fee.toLocaleString()}* — deducted from your payout\n` +
-        `You receive: *₦${sellerReceives.toLocaleString()}* after fee\n\n` +
-        `Now choose your preferred escrow provider.\n` +
-        `The buyer's funds will be held by them until you both confirm the deal.`,
+        `💳 Buyer pays:       *₦${price.toLocaleString()}*\n` +
+        `✂️  Swappa fee (${rate}%): *₦${fee.toLocaleString()}*\n` +
+        `💰 You receive:      *₦${sellerReceives.toLocaleString()}*\n\n` +
+        `─────────────────\n` +
+        `💡 *Pricing tip*\n` +
+        `Listings priced fairly sell faster and get more offers. Overpriced listings tend to sit unseen.\n\n` +
+        `Check what similar accounts are going for in the marketplace before finalising — buyers do their research too.\n\n` +
+        `You can always negotiate through offers once your listing is live.\n\n` +
+        `─────────────────\n` +
+        `Happy with this price? Choose your escrow provider below to continue.\n` +
+        `Or type *CANCEL* to start over.`,
       [
         { id: "ESCROW_KOJI",    title: "🔒 Koji Agudah"       },
         { id: "ESCROW_NAUMAN",  title: "🔒 Nauman Chaudhary"  },
