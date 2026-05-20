@@ -340,6 +340,7 @@ async function showListingDetail(phone: string, listingId: string): Promise<void
     listing.escrowProvider === 'koji_agudah'      ? 'Koji Agudah' :
     listing.escrowProvider === 'nauman_chaudhary'  ? 'Nauman Chaudhary' :
     'Swappa Native Escrow';
+    
 
   await sendMessage(phone,
     `${listing.isFeatured ? '⭐ *FEATURED LISTING*\n\n' : ''}` +
