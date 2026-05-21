@@ -1,11 +1,11 @@
 // src/services/whatsapp.ts
 import axios, { AxiosInstance } from 'axios';
+import MessageLog, { MessageCategory } from '../models/MessageLog';
 
 const VERSION = process.env.META_API_VERSION || 'v19.0';
 const PHONE   = process.env.META_PHONE_NUMBER_ID!;
 const TOKEN   = process.env.META_ACCESS_TOKEN!;
 
-// Create axios instance with defaults
 const metaClient: AxiosInstance = axios.create({
   baseURL: `https://graph.facebook.com/${VERSION}`,
   headers: {
@@ -15,18 +15,17 @@ const metaClient: AxiosInstance = axios.create({
   timeout: 10000,
 });
 
-// Retry wrapper — Meta API occasionally returns 5xx
+// ─── Retry wrapper ────────────────────────────────────────────────────────────
 async function withRetry<T>(
   fn: () => Promise<T>,
   retries = 3,
-  delay = 1000
+  delay = 1000,
 ): Promise<T> {
   try {
     return await fn();
   } catch (err: any) {
     if (retries === 0) throw err;
-    const isRetryable = err?.response?.status >= 500 ||
-                        err?.code === 'ECONNRESET';
+    const isRetryable = err?.response?.status >= 500 || err?.code === 'ECONNRESET';
     if (!isRetryable) throw err;
     await new Promise(r => setTimeout(r, delay));
     return withRetry(fn, retries - 1, delay * 2);
@@ -41,21 +40,52 @@ export async function sendMessage(to: string, text: string): Promise<void> {
       recipient_type:    'individual',
       to,
       type: 'text',
-      text: {
-        body:        text,
-        preview_url: false,
-      },
-    })
+      text: { body: text, preview_url: false },
+    }),
   );
 }
 
-// ─── Send interactive buttons (max 3 buttons) ─────────────────────────────────
+// ─── Send tracked — use for broadcasts you want open-rate data on ─────────────
+// Returns the wamid so the caller can store it if needed, but also
+// auto-persists a MessageLog entry with category + optional refId.
+export async function sendTracked(
+  to:       string,
+  text:     string,
+  category: MessageCategory,
+  refId?:   string,           // e.g. listingId, transactionId
+): Promise<string | null> {
+  try {
+    const res = await withRetry(() =>
+      metaClient.post(`/${PHONE}/messages`, {
+        messaging_product: 'whatsapp',
+        recipient_type:    'individual',
+        to,
+        type: 'text',
+        text: { body: text, preview_url: false },
+      }),
+    );
+
+    const wamid: string | undefined = res.data?.messages?.[0]?.id;
+    if (!wamid) return null;
+
+    // Fire-and-forget — never block the send path
+    MessageLog.create({ wamid, to, category, refId, status: 'sent', sentAt: new Date() })
+      .catch(err => console.error('[MessageLog] Create error:', err?.message));
+
+    return wamid;
+  } catch (err) {
+    console.error('[sendTracked] Failed to send to', to, err);
+    return null;
+  }
+}
+
+// ─── Send interactive buttons (max 3) ────────────────────────────────────────
 export async function sendButtons(
-  to: string,
-  body: string,
+  to:      string,
+  body:    string,
   buttons: { id: string; title: string }[],
   header?: string,
-  footer?: string
+  footer?: string,
 ): Promise<void> {
   if (buttons.length > 3) {
     throw new Error('WhatsApp buttons max is 3. Use sendList for more options.');
@@ -72,10 +102,7 @@ export async function sendButtons(
       action: {
         buttons: buttons.map(b => ({
           type:  'reply',
-          reply: {
-            id:    b.id.slice(0, 256),    // Meta limit
-            title: b.title.slice(0, 20),  // Meta limit
-          },
+          reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) },
         })),
       },
     },
@@ -89,15 +116,12 @@ export async function sendButtons(
 
 // ─── Send list menu (up to 10 items) ─────────────────────────────────────────
 export async function sendList(
-  to: string,
-  body: string,
-  buttonText: string,
-  sections: {
-    title: string;
-    rows:  { id: string; title: string; description?: string }[];
-  }[],
-  header?: string,
-  footer?: string
+  to:          string,
+  body:        string,
+  buttonText:  string,
+  sections:    { title: string; rows: { id: string; title: string; description?: string }[] }[],
+  header?:     string,
+  footer?:     string,
 ): Promise<void> {
   const payload: any = {
     messaging_product: 'whatsapp',
@@ -138,12 +162,9 @@ export async function sendImage(
       messaging_product: 'whatsapp',
       recipient_type:    'individual',
       to,
-      type: 'image',
-      image: {
-        link:    url,
-        ...(caption ? { caption: caption.slice(0, 1024) } : {}),
-      },
-    })
+      type:  'image',
+      image: { link: url, ...(caption ? { caption: caption.slice(0, 1024) } : {}) },
+    }),
   );
 }
 
@@ -154,25 +175,21 @@ export async function markAsRead(messageId: string): Promise<void> {
       messaging_product: 'whatsapp',
       status:            'read',
       message_id:        messageId,
-    })
-  ).catch(() => {}); // Non-critical — don't fail if this errors
+    }),
+  ).catch(() => {}); // Non-critical
 }
 
 // ─── Download media sent by user ──────────────────────────────────────────────
 export async function getMediaUrl(mediaId: string): Promise<string> {
-  const res = await withRetry(() =>
-    metaClient.get(`/${mediaId}`)
-  );
+  const res = await withRetry(() => metaClient.get(`/${mediaId}`));
   return res.data.url;
 }
 
-export async function downloadMedia(
-  mediaUrl: string
-): Promise<Buffer> {
+export async function downloadMedia(mediaUrl: string): Promise<Buffer> {
   const res = await axios.get(mediaUrl, {
-    headers: { Authorization: `Bearer ${TOKEN}` },
+    headers:      { Authorization: `Bearer ${TOKEN}` },
     responseType: 'arraybuffer',
-    timeout: 30000,
+    timeout:      30000,
   });
   return Buffer.from(res.data);
 }

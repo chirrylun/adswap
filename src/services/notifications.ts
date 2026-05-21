@@ -1,5 +1,6 @@
+// src/services/notifications.ts
 import User from '../models/User';
-import { sendMessage } from './whatsapp';
+import { sendMessage, sendTracked } from './whatsapp';
 import { TYPE_LABELS } from '../config/constants';
 
 // ── Snippet builders per type (mirrors listings.ts) ──────────────────────────
@@ -124,35 +125,49 @@ function buildListingBlurb(listing: any): string {
 
 // ── Broadcast to all opted-in users ──────────────────────────────────────────
 export async function broadcastNewListing(listing: any): Promise<void> {
-  // Fetch all non-banned users who haven't opted out of this type
   const users = await User.find({
-  isBanned: false,
-  _id:      { $ne: listing.seller },
-  $or: [
-    { 'notifications.enabled': true,  'notifications.optedOutTypes': { $nin: [listing.type] } },
-    { 'notifications.enabled': { $exists: false } },  // legacy users without the field — include them
-  ],
-}).select('phone').lean();
+    isBanned: false,
+    _id:      { $ne: listing.seller },
+    $or: [
+      { 'notifications.enabled': true,  'notifications.optedOutTypes': { $nin: [listing.type] } },
+      { 'notifications.enabled': { $exists: false } },
+    ],
+  }).select('phone').lean();
 
   if (!users.length) return;
 
   const message = buildListingBlurb(listing);
 
-  // Send in batches of 10 with a small delay to avoid rate limits
-  const BATCH  = 10;
-  const DELAY  = 1000; // ms between batches
+  // ── Batch send with tracking ──────────────────────────────────────────────
+  // sendTracked logs each wamid to MessageLog so the webhook can record
+  // delivered/read statuses — giving us open-rate per listing.
+  const BATCH = 10;
+  const DELAY = 1000; // ms between batches to respect Meta rate limits
+
+  let sent = 0;
 
   for (let i = 0; i < users.length; i += BATCH) {
     const batch = users.slice(i, i + BATCH);
-    await Promise.allSettled(
-      batch.map(u => sendMessage(u.phone, message))
+
+    const results = await Promise.allSettled(
+      batch.map(u =>
+        sendTracked(
+          u.phone,
+          message,
+          'new_listing',     // category — used for open-rate queries
+          listing.listingId, // refId — lets us query open rate per listing
+        ),
+      ),
     );
+
+    sent += results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
+
     if (i + BATCH < users.length) {
       await new Promise(r => setTimeout(r, DELAY));
     }
   }
 
-  console.log(`[NOTIFY] Broadcast sent to ${users.length} users for listing ${listing.listingId}`);
+  console.log(`[NOTIFY] Broadcast sent to ${sent}/${users.length} users for listing ${listing.listingId}`);
 }
 
 // ── Handle OPTOUT command ─────────────────────────────────────────────────────
@@ -160,13 +175,12 @@ export async function handleOptOut(
   phone:     string,
   assetType: string,
 ): Promise<void> {
-  
   const label = TYPE_LABELS[assetType];
 
   if (!label) {
     return sendMessage(phone,
       `❌ Unknown asset type.\n\n` +
-      `To opt out, use the link in any listing notification.`
+      `To opt out, use the link in any listing notification.`,
     );
   }
 
@@ -179,7 +193,7 @@ export async function handleOptOut(
   return sendMessage(phone,
     `✅ Done — you won't receive new listing alerts for *${label}* anymore.\n\n` +
     `To re-enable, type:\n` +
-    `\`OPTIN ${assetType}\``
+    `\`OPTIN ${assetType}\``,
   );
 }
 
@@ -188,13 +202,12 @@ export async function handleOptIn(
   phone:     string,
   assetType: string,
 ): Promise<void> {
-
   const label = TYPE_LABELS[assetType];
 
   if (!label) {
     return sendMessage(phone,
       `❌ Unknown asset type. Valid types:\n\n` +
-      Object.entries(TYPE_LABELS).map(([k, v]) => `• \`OPTIN ${k}\` — ${v}`).join('\n')
+      Object.entries(TYPE_LABELS).map(([k, v]) => `• \`OPTIN ${k}\` — ${v}`).join('\n'),
     );
   }
 
@@ -206,7 +219,7 @@ export async function handleOptIn(
   return sendMessage(phone,
     `✅ You'll now receive new listing alerts for *${label}*.\n\n` +
     `To stop again:\n` +
-    `\`OPTOUT ${assetType}\``
+    `\`OPTOUT ${assetType}\``,
   );
 }
 
@@ -224,6 +237,6 @@ export async function handleNotificationsToggle(
   return sendMessage(phone,
     enabled
       ? `✅ Listing notifications *enabled*. You'll be alerted when new accounts go live.\n\nTo disable: *NOTIFICATIONS OFF*`
-      : `🔕 Listing notifications *disabled*. You won't receive any listing alerts.\n\nTo re-enable: *NOTIFICATIONS ON*`
+      : `🔕 Listing notifications *disabled*. You won't receive any listing alerts.\n\nTo re-enable: *NOTIFICATIONS ON*`,
   );
 }
