@@ -168,6 +168,41 @@ export async function sendImage(
   );
 }
 
+export async function sendImageTracked(
+  to:       string,
+  imageUrl: string,
+  caption:  string,
+  category: MessageCategory,
+  refId?:   string,
+): Promise<string | null> {
+  try {
+    const res = await withRetry(() =>
+      metaClient.post(`/${PHONE}/messages`, {
+        messaging_product: 'whatsapp',
+        recipient_type:    'individual',
+        to,
+        type:  'image',
+        image: {
+          link:    imageUrl,
+          caption: caption.slice(0, 1024),
+        },
+      }),
+    );
+ 
+    const wamid: string | undefined = res.data?.messages?.[0]?.id;
+    if (!wamid) return null;
+ 
+    // Fire-and-forget — never block the send path
+    MessageLog.create({ wamid, to, category, refId, status: 'sent', sentAt: new Date() })
+      .catch(err => console.error('[MessageLog] Create error:', err?.message));
+ 
+    return wamid;
+  } catch (err) {
+    console.error('[sendImageTracked] Failed to send to', to, err);
+    return null;
+  }
+}
+
 // ─── Mark message as read ─────────────────────────────────────────────────────
 export async function markAsRead(messageId: string): Promise<void> {
   await withRetry(() =>

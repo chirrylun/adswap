@@ -13,6 +13,7 @@ import webhookRouter     from './routes/webhook';
 import adminRouter       from './routes/admin';
 import adminAuthRouter   from './routes/adminAuth';
 import analyticsRouter from './routes/analytics';
+import broadcastsRouter from './routes/broadcast';
 
 const app = express();
 
@@ -97,6 +98,7 @@ app.use('/webhook', webhookRouter);
 app.use('/admin',   adminAuthRouter);
 app.use('/admin',   adminRouter);
 app.use('/admin/analytics',   analyticsRouter);
+app.use('/admin/broadcasts', broadcastsRouter)
 
 app.get('/payment/done', (_req: Request, res: Response) => {
   res.send(`
