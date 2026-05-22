@@ -32,6 +32,8 @@ export interface IListing extends Document {
   platformFee: number;
   buyerPays: number;
   sellerReceives: number;
+  isReseller?: boolean;
+  resellerCommission?: number;
 
   description: string;
   niche?: string;
@@ -148,6 +150,8 @@ const ListingSchema = new Schema<IListing>(
     platformFee: { type: Number, required: true },
     buyerPays: { type: Number, required: true },
     sellerReceives: { type: Number, required: true },
+    isReseller: { type: Boolean, default: false },
+    resellerCommission: { type: Number, default: 0 },
 
     description: { type: String, required: true, maxlength: 600 },
     niche: { type: String, maxlength: 100 },
