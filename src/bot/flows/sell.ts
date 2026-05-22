@@ -55,7 +55,7 @@ function getQuestions(type: string): Question[] {
     },
     {
       step: "sell_q_gads_spend",
-      prompt: `*Step 2 of 8 — Total Spend* 💸\n\nWhat is the total lifetime spend on this account?\n\nExamples: _$500_, _$10,000_, _$50,000+_\n\nType your answer:`,
+      prompt: `*Step 2 of 8 — Total Spend* 💸\n\nHow much money has been spent running ads on this account in total, from when it was created until now?\n\nExamples: _$500_, _$10,000_, _$50,000+_\n\nType your answer:`,
     },
     {
       step: "sell_q_gads_currency",
