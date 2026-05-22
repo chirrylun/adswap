@@ -7,7 +7,7 @@ export async function showWelcome(phone: string): Promise<void> {
     phone,
     `👋 Welcome to *Swappa*\n\n` +
       `The safest way to buy and sell digital accounts in Nigeria.\n\n` +
-      `Whether you're selling a Google Ads account, TikTok page, Instagram account, Play Console, gift cards and more — we've got you covered.\n\n` +
+      `Whether you're selling a Google Adsense account, TikTok page, Instagram account, Play Console, gift cards and more — we've got you covered.\n\n` +
       `🔒 *Your money is always protected*\n` +
       `Every transaction goes through *Koji Agudah*, *Nauman Chaudhary* or *Swappa's native escrow* — funds are held safely and only released when you confirm you've received full access.\n\n` +
       `✅ Every listing is manually verified before going live\n` +

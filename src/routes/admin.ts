@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 import { adminAuth, AdminRequest } from '../middleware/auth';
 import { adminLimiter, loginLimiter } from '../middleware/rateLimiter';
 import { sendMessage } from '../services/whatsapp';
-import { broadcastNewListing } from '../services/notifications';
+import { broadcastNewListing, broadcastSoldListing } from '../services/notifications';
 import { listingDetailCTA } from '../bot/flows/listings';
 import Listing     from '../models/Listing';
 import Transaction from '../models/Transaction';
@@ -241,9 +241,19 @@ router.post('/transactions/:id/complete', adminAuth, async (req: AdminRequest, r
   if (!txn) return res.status(404).json({ error: 'Transaction not found or not in pending status' });
 
   txn.status      = 'completed';
-  txn.completedAt = new Date();
-  if (adminNote) txn.adminNote = adminNote;
-  await txn.save();
+txn.completedAt = new Date();
+if (adminNote) txn.adminNote = adminNote;
+await txn.save();
+
+// ── Broadcast sold alert ──────────────────────────────────────────────────
+const soldListing = await Listing.findOne({ listingId: txn.listingId });
+if (soldListing) {
+  broadcastSoldListing(soldListing).catch(err =>
+    console.error('[NOTIFY] Sold alert error:', err),
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 
   await sendMessage(txn.seller.phone,
     `💸 *Payment Released!*\n\n` +

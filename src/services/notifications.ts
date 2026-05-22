@@ -170,6 +170,67 @@ export async function broadcastNewListing(listing: any): Promise<void> {
   console.log(`[NOTIFY] Broadcast sent to ${sent}/${users.length} users for listing ${listing.listingId}`);
 }
 
+// ── Broadcast sold alert to opted-in users ────────────────────────────────────
+export async function broadcastSoldListing(listing: any): Promise<void> {
+  const users = await User.find({
+    isBanned: false,
+    _id:      { $ne: listing.seller },
+    $or: [
+      { 'notifications.enabled': true,  'notifications.optedOutTypes': { $nin: [listing.type] } },
+      { 'notifications.enabled': { $exists: false } },
+    ],
+  }).select('phone').lean();
+
+  if (!users.length) return;
+
+  const label = TYPE_LABELS[listing.type] ?? listing.type;
+  const price = listing.buyerPays || listing.price;
+
+  const message =
+    `🔴 *Just Sold — ${label}*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `A *${label}* listed at *₦${price.toLocaleString()}* just sold on Swappa.\n\n` +
+    `These go fast — don't miss the next one.\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `👇 *What you can do right now:*\n\n` +
+    `🔍 *Browse* what's still available:\n` +
+    `Reply \`LISTINGS\`\n\n` +
+    `📣 *Request* one from the community:\n` +
+    `Reply \`REQUEST\`\n\n` +
+    `💰 *Have one to sell?*\n` +
+    `Reply \`SELL\` to list yours now\n\n` +
+    `─────────────────\n` +
+    `Don't want sold alerts?\n` +
+    `Send 👉 \`OPTOUT ${listing.type}\``;
+
+  const BATCH = 10;
+  const DELAY = 1000;
+  let sent = 0;
+
+  for (let i = 0; i < users.length; i += BATCH) {
+    const batch = users.slice(i, i + BATCH);
+
+    const results = await Promise.allSettled(
+      batch.map(u =>
+        sendTracked(
+          u.phone,
+          message,
+          'sold_listing',
+          listing.listingId,
+        ),
+      ),
+    );
+
+    sent += results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
+
+    if (i + BATCH < users.length) {
+      await new Promise(r => setTimeout(r, DELAY));
+    }
+  }
+
+  console.log(`[NOTIFY] Sold alert sent to ${sent}/${users.length} users for listing ${listing.listingId}`);
+}
+
 // ── Handle OPTOUT command ─────────────────────────────────────────────────────
 export async function handleOptOut(
   phone:     string,

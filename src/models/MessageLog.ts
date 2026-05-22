@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export type MessageCategory =
   | 'new_listing'
+  | 'sold_listing'
   | 'offer'
   | 'transaction'
   | 'dispute'
